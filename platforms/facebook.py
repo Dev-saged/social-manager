@@ -4,7 +4,7 @@
 وجلب منشورات الصفحات المتابَعة (للمراقبة)، لكن لا يتيح التفاعل التلقائي مع حسابات الأصدقاء.
 """
 import requests
-from platforms.base import BasePlatform
+from platforms.base import BasePlatform, RateLimitExceeded
 
 GRAPH = "https://graph.facebook.com/v21.0"
 
@@ -35,12 +35,12 @@ class FacebookPlatform(BasePlatform):
 
     def comment(self, post_id, text):
         if not self.comment_limiter.allow():
-            raise RuntimeError("تم تجاوز حد التعليقات لهذه الساعة")
+            raise RateLimitExceeded("تم تجاوز حد التعليقات لهذه الساعة")
         self._graph(f"{post_id}/comments", "POST", message=text)
 
     def like(self, post_id):
         if not self.like_limiter.allow():
-            raise RuntimeError("تم تجاوز حد الإعجابات لهذه الساعة")
+            raise RateLimitExceeded("تم تجاوز حد الإعجابات لهذه الساعة")
         self._graph(f"{post_id}/likes", "POST")
 
     def recent_posts(self, username, limit=5):

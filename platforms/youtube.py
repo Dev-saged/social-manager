@@ -5,7 +5,7 @@
 التعليق = كتابة تعليق على فيديو. النشر = رفع فيديو (Shorts أو عادي).
 """
 import os
-from platforms.base import BasePlatform
+from platforms.base import BasePlatform, RateLimitExceeded
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 
@@ -55,7 +55,7 @@ class YouTubePlatform(BasePlatform):
 
     def comment(self, video_id, text):
         if not self.comment_limiter.allow():
-            raise RuntimeError("تم تجاوز حد التعليقات لهذه الساعة")
+            raise RateLimitExceeded("تم تجاوز حد التعليقات لهذه الساعة")
         self._api().commentThreads().insert(
             part="snippet",
             body={"snippet": {"videoId": video_id,
@@ -63,6 +63,8 @@ class YouTubePlatform(BasePlatform):
         ).execute()
 
     def like(self, video_id):
+        if not self.like_limiter.allow():
+            raise RateLimitExceeded("تم تجاوز حد الإعجابات لهذه الساعة")
         self._api().videos().rate(id=video_id, rating="like").execute()
 
     def recent_posts(self, channel_name, limit=5):

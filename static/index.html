@@ -6,9 +6,9 @@
 <title>مدير حساباتي</title>
 <style>
 :root{
-  --bg:#0b0b12; --card:rgba(255,255,255,.055); --card-border:rgba(255,255,255,.09);
-  --txt:#eceaf6; --dim:#9a97b0; --accent:#8b5cf6; --accent2:#d946ef;
-  --ok:#34d399; --warn:#fbbf24; --bad:#f87171; --radius:20px;
+  --bg:#f2f6f3; --card:#ffffff; --card-border:#dce6df;
+  --txt:#182720; --dim:#64766c; --accent:#087f6a; --accent2:#d9784c;
+  --ok:#168458; --warn:#a56b0d; --bad:#bd4545; --radius:12px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
@@ -18,11 +18,10 @@ body{
 }
 body::before{
   content:"";position:fixed;inset:0;z-index:-1;
-  background:radial-gradient(600px 400px at 85% -5%,rgba(139,92,246,.22),transparent 60%),
-             radial-gradient(500px 380px at 10% 110%,rgba(217,70,239,.14),transparent 60%),
-             var(--bg);
+  background:linear-gradient(145deg,rgba(8,127,106,.055),transparent 38%),
+             linear-gradient(325deg,rgba(217,120,76,.045),transparent 34%),var(--bg);
 }
-.wrap{max-width:520px;margin:0 auto;padding:16px 16px 96px}
+.wrap{max-width:980px;margin:0 auto;padding:22px 24px 110px}
 header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 18px}
 header h1{font-size:20px;font-weight:800;letter-spacing:.2px}
 header h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -30,7 +29,7 @@ header h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-w
 
 .card{
   background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);
-  padding:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  padding:18px;
   margin-bottom:14px;animation:rise .35s ease both;
 }
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
@@ -38,26 +37,26 @@ header h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-w
 .card h2 small{color:var(--dim);font-weight:400;font-size:12px;margin-inline-start:6px}
 
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.stat{background:var(--card);border:1px solid var(--card-border);border-radius:16px;padding:14px;text-align:center}
-.stat b{display:block;font-size:26px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat{background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:16px;text-align:right}
+.stat b{display:block;font-size:26px;color:var(--accent)}
 .stat span{font-size:12px;color:var(--dim)}
 
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
   border:none;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:700;cursor:pointer;
-  background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;
+  background:var(--accent);color:#fff;
   transition:transform .15s ease,filter .15s ease;font-family:inherit;
 }
 .btn:active{transform:scale(.97)}
 .btn.ghost{background:var(--card);border:1px solid var(--card-border);color:var(--txt)}
 .btn.small{width:auto;padding:8px 14px;font-size:12px;border-radius:10px}
-.btn.ok{background:linear-gradient(90deg,#059669,#34d399)}
+.btn.ok{background:var(--ok)}
 .btn.bad{background:rgba(248,113,113,.14);border:1px solid rgba(248,113,113,.4);color:var(--bad)}
 .btn:disabled{opacity:.5;pointer-events:none}
 
 label{display:block;font-size:12px;color:var(--dim);margin:10px 2px 6px}
 input,textarea,select{
-  width:100%;background:rgba(0,0,0,.25);border:1px solid var(--card-border);border-radius:12px;
+  width:100%;background:#f8fbf9;border:1px solid var(--card-border);border-radius:12px;
   padding:12px 14px;color:var(--txt);font-size:14px;font-family:inherit;outline:none;
   transition:border-color .15s ease;
 }
@@ -76,23 +75,23 @@ select{appearance:none}
 .chip-btn.on{background:linear-gradient(90deg,var(--accent),var(--accent2));border-color:transparent;color:#fff;font-weight:700}
 
 .item{
-  background:rgba(0,0,0,.22);border:1px solid var(--card-border);border-radius:14px;
+  background:#f8fbf9;border:1px solid var(--card-border);border-radius:12px;
   padding:13px;margin-bottom:10px;animation:rise .3s ease both;
 }
 .item .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .item .who{font-size:13px;font-weight:700}
 .item .tag{font-size:10px;color:var(--dim);border:1px solid var(--card-border);border-radius:999px;padding:2px 9px}
-.item p{font-size:13px;line-height:1.7;color:#cfccdf}
+.item p{font-size:13px;line-height:1.7;color:#33463b}
 .item .meta{font-size:11px;color:var(--dim);margin-top:6px}
 .item .actions{display:flex;gap:8px;margin-top:10px}
 .item textarea{min-height:52px;font-size:13px}
 
-.log{font-size:12px;color:var(--dim);display:flex;gap:8px;padding:8px 2px;border-bottom:1px solid rgba(255,255,255,.04)}
+.log{font-size:12px;color:var(--dim);display:flex;gap:8px;padding:8px 2px;border-bottom:1px solid var(--card-border)}
 .log b{color:var(--txt);font-weight:600}
 .log .t{flex-shrink:0;color:var(--accent);font-weight:600}
 .log.err .t{color:var(--bad)}
 
-.progress{height:6px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:12px;display:none}
+.progress{height:6px;border-radius:99px;background:#e5ece7;overflow:hidden;margin-top:12px;display:none}
 .progress.on{display:block}
 .progress i{display:block;height:100%;width:40%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:slide 1.1s ease-in-out infinite}
 @keyframes slide{0%{transform:translateX(100%)}100%{transform:translateX(-250%)}}
@@ -101,8 +100,8 @@ select{appearance:none}
 
 #toast{
   position:fixed;bottom:110px;left:50%;transform:translateX(-50%) translateY(20px);
-  background:rgba(20,18,32,.92);border:1px solid var(--card-border);backdrop-filter:blur(10px);
-  color:var(--txt);padding:11px 20px;border-radius:14px;font-size:13px;opacity:0;
+  background:#182720;border:1px solid #30463a;backdrop-filter:blur(10px);
+  color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;opacity:0;
   pointer-events:none;transition:all .25s ease;z-index:50;max-width:85%;text-align:center;
 }
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -110,11 +109,11 @@ select{appearance:none}
 nav{
   position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;z-index:40;
   padding:10px 12px calc(12px + env(safe-area-inset-bottom));
-  background:linear-gradient(to top,rgba(11,11,18,.96),rgba(11,11,18,0));
+  background:linear-gradient(to top,rgba(242,246,243,.98),rgba(242,246,243,0));
 }
 .nav-inner{
-  display:flex;background:rgba(20,18,32,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  border:1px solid var(--card-border);border-radius:22px;overflow:hidden;width:100%;max-width:470px;
+  display:flex;background:rgba(255,255,255,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--card-border);border-radius:12px;overflow:hidden;width:100%;max-width:620px;
 }
 .nav-inner button{
   flex:1;background:none;border:none;color:var(--dim);padding:11px 2px 9px;cursor:pointer;
@@ -124,8 +123,21 @@ nav{
 .nav-inner button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .nav-inner button.on{color:var(--accent);font-weight:700}
 .page{display:none}
-.page.on{display:block}
+.page.on{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px}
+.page.on>.stats,.page.on>#result-card,.page.on>button{grid-column:1/-1}
+.page#page-accounts>.card:first-child,.page#page-content>.card:first-child,.page#page-settings>.card:first-child{grid-column:1/-1}
 .badge{background:var(--accent2);color:#fff;border-radius:999px;font-size:9px;padding:1px 6px;margin-inline-start:4px}
+.hint{font-size:11px;color:var(--dim);line-height:1.7;margin-top:6px}
+.status{font-size:12px;color:var(--accent);min-height:18px;margin-top:6px}
+.account-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+@media(max-width:680px){
+  .wrap{padding:14px 14px 100px}
+  .page.on{grid-template-columns:minmax(0,1fr)}
+  .page.on>*{grid-column:1/-1}
+  .account-fields{grid-template-columns:minmax(0,1fr)}
+  .stats{gap:8px}
+  .stat{padding:12px}
+}
 </style>
 </head>
 <body>
@@ -161,12 +173,12 @@ nav{
       <h2>إضافة حساب</h2>
       <div class="chips" id="platform-chips" style="margin-bottom:4px"></div>
       <label>اسم المستخدم</label><input id="acc-user" placeholder="مثال: my_account">
-      <label>كلمة المرور / مفتاح الدخول</label><input id="acc-pass" type="password" placeholder="تُخزَّن مشفّرة على جهازك فقط">
-      <label>نوع الحساب</label>
+      <div id="account-type-control"><label>نوع الحساب</label>
       <div class="chips">
         <button class="chip-btn on" id="type-personal" onclick="setAccType('personal')">شخصي</button>
         <button class="chip-btn" id="type-business" onclick="setAccType('business')">بيزنس</button>
-      </div>
+      </div></div>
+      <div class="account-fields" id="credential-fields"></div>
       <div style="height:14px"></div>
       <button class="btn" onclick="addAccount()">إضافة الحساب</button>
     </div>
@@ -195,6 +207,17 @@ nav{
       <h2>المنشور الجاهز <small>يمكنك تعديله قبل الجدولة</small></h2>
       <textarea id="c-result" style="min-height:110px"></textarea>
       <label>موعد النشر</label><input id="c-time" type="time" value="18:30">
+      <div id="media-upload-wrap">
+        <label for="media-file">صورة أو فيديو</label>
+        <input id="media-file" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov" onchange="uploadMedia(this.files[0])">
+      </div>
+      <div class="status" id="media-status"></div>
+      <p class="hint" id="media-guide"></p>
+      <div id="media-url-wrap" style="display:none">
+        <label for="media-url">رابط صورة JPEG عام</label>
+        <input id="media-url" type="url" placeholder="https://example.com/photo.jpg">
+        <p class="hint">يتطلب Instagram Business رابطاً عاماً مباشراً لصورة JPEG عبر HTTPS.</p>
+      </div>
       <div style="height:14px"></div>
       <button class="btn ok" onclick="schedulePost()">جدولة النشر التلقائي</button>
     </div>
@@ -250,13 +273,16 @@ nav{
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let accType = "personal", platform = "instagram";
+let accType = "personal", platform = "instagram", accountsCache = [], selectedMedia = null;
 
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2600);}
 function go(p,btn){document.querySelectorAll(".page").forEach(e=>e.classList.remove("on"));$("page-"+p).classList.add("on");
  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("on"));btn.classList.add("on");
  if(p==="dash")loadDash(); if(p==="accounts")loadAccounts(); if(p==="queue")loadQueue(); if(p==="settings")loadSettings(); if(p==="content")refreshAccountSelects();}
-async function api(path,opts){const r=await fetch("/api/"+path,opts&&{headers:{"Content-Type":"application/json"},body:JSON.stringify(opts)}||undefined);
+async function api(path,opts){
+ const init={};
+ if(opts){init.method=opts.method||"POST";if(init.method!=="DELETE"){const payload={...opts};delete payload.method;init.headers={"Content-Type":"application/json"};init.body=JSON.stringify(payload);}}
+ const r=await fetch("/api/"+path,init);
  const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||"خطأ في الاتصال بالخادم"); return j;}
 const fmt = ts => new Date(ts*1000).toLocaleTimeString("ar", {hour:"2-digit",minute:"2-digit"});
 
@@ -287,28 +313,66 @@ async function buildQueue(){
 /* الحسابات */
 const PLATFORMS=[["instagram","انستغرام"],["facebook","فيسبوك"],["x","X"],["youtube","يوتيوب"]];
 $("platform-chips").innerHTML=PLATFORMS.map(([v,n],i)=>`<button class="chip-btn ${i?"":"on"}" data-v="${v}" onclick="pickPlatform(this)">${n}</button>`).join("");
-function pickPlatform(el){platform=el.dataset.v;$("platform-chips").querySelectorAll(".chip-btn").forEach(b=>b.classList.remove("on"));el.classList.add("on");}
-function setAccType(t){accType=t;$("type-personal").classList.toggle("on",t==="personal");$("type-business").classList.toggle("on",t==="business");}
+const CREDENTIAL_FIELDS={
+  instagram:{personal:[["password","كلمة مرور Instagram","password"]],business:[["access_token","Instagram Access Token","password"],["ig_user_id","Instagram User ID","text"]]},
+  facebook:{personal:[["access_token","Page Access Token","password"],["page_id","Facebook Page ID","text"]]},
+  x:{personal:[["api_key","API Key","password"],["api_secret","API Secret","password"],["access_token","Access Token","password"],["access_token_secret","Access Token Secret","password"]]},
+  youtube:{personal:[["client_secrets_path","مسار client_secrets.json (اختياري)","text"]]}
+};
+function renderCredentialFields(){
+  const showType=platform==="instagram";
+  $("account-type-control").style.display=showType?"block":"none";
+  const fields=CREDENTIAL_FIELDS[platform][accType]||CREDENTIAL_FIELDS[platform].personal;
+  $("credential-fields").innerHTML=fields.map(([key,label,type])=>`<div><label for="cred-${key}">${label}</label><input id="cred-${key}" type="${type}" autocomplete="off"></div>`).join("");
+}
+function pickPlatform(el){platform=el.dataset.v;$("platform-chips").querySelectorAll(".chip-btn").forEach(b=>b.classList.remove("on"));el.classList.add("on");renderCredentialFields();}
+function setAccType(t){accType=t;$("type-personal").classList.toggle("on",t==="personal");$("type-business").classList.toggle("on",t==="business");renderCredentialFields();}
 async function addAccount(){
   try{
-    await api("accounts",{platform,username:$("acc-user").value,credentials:{password:$("acc-pass").value},type:accType});
-    $("acc-user").value="";$("acc-pass").value="";toast("تمت إضافة الحساب");loadAccounts();
+    const credentials={};
+    for(const [key] of CREDENTIAL_FIELDS[platform][accType]||CREDENTIAL_FIELDS[platform].personal){credentials[key]=$("cred-"+key).value.trim();}
+    await api("accounts",{platform,username:$("acc-user").value.trim(),credentials,type:accType});
+    $("acc-user").value="";renderCredentialFields();toast("تمت إضافة الحساب");loadAccounts();
   }catch(e){toast(e.message)}
 }
 async function loadAccounts(){
   try{
     const list=await api("accounts");
+    accountsCache=list;
     $("accounts-list").innerHTML=list.length?list.map(a=>
       `<div class="item"><div class="top"><span class="who">${esc(a.platform)} :: ${esc(a.username)}</span>
-       <span class="tag">${a.type==="business"?"بيزنس":"شخصي"}</span></div>
-       <div class="actions"><button class="btn small ghost" onclick="validateAcc(${a.id})">فحص الدخول</button>
+       <span class="tag">${a.active?"فعّال":"متوقف"} · ${a.type==="business"?"بيزنس":"شخصي"}</span></div>
+       <div class="actions"><button class="btn small ghost" onclick="toggleAccount(${a.id},${!a.active})">${a.active?"إيقاف":"تفعيل"}</button>
+       <button class="btn small ghost" onclick="validateAcc(${a.id})">فحص الدخول</button>
        <button class="btn small bad" onclick="delAccount(${a.id})">حذف</button></div></div>`).join("")
       : `<div class="empty">أضف حسابك الأول</div>`;
     refreshAccountSelects();
   }catch(e){toast(e.message)}
 }
-async function delAccount(id){await api("accounts/"+id,{method:"DELETE"});toast("حُذف");loadAccounts();}
-async function validateAcc(id){toast("جارٍ الفحص...");const r=await api("accounts/"+id+"/validate",{});toast(r.detail);}
+async function delAccount(id){try{await api("accounts/"+id,{method:"DELETE"});toast("حُذف الحساب ومهامه المرتبطة");loadAccounts();}catch(e){toast(e.message)}}
+async function toggleAccount(id,active){try{await api("accounts/"+id+"/active",{active});loadAccounts();}catch(e){toast(e.message)}}
+async function validateAcc(id){try{toast("جارٍ الفحص...");const r=await api("accounts/"+id+"/validate",{});toast(r.detail);}catch(e){toast(e.message)}}
+
+async function uploadMedia(file){
+  selectedMedia=null;$("media-status").textContent="";
+  if(!file)return;
+  if(file.size>100*1024*1024){$("media-status").textContent="الحد الأقصى 100 ميغابايت";$("media-file").value="";return;}
+  const form=new FormData();form.append("file",file);
+  try{
+    $("media-status").textContent="جارٍ رفع الملف محلياً...";
+    const response=await fetch("/api/media",{method:"POST",body:form});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(result.error||"تعذر رفع الملف");
+    selectedMedia=result;$("media-status").textContent="جاهز: "+result.name;
+  }catch(e){$("media-status").textContent=e.message;$("media-file").value="";}
+}
+function updateMediaControls(){
+  const account=accountsCache.find(item=>String(item.id)===$("c-account").value);
+  const businessInstagram=account?.platform==="instagram"&&account.type==="business";
+  $("media-url-wrap").style.display=businessInstagram?"block":"none";
+  $("media-upload-wrap").style.display=businessInstagram?"none":"block";
+  $("media-guide").textContent=businessInstagram?"حساب Instagram Business يقبل صورة JPEG عامة فقط.":account?.platform==="youtube"?"YouTube يتطلب فيديو MP4 أو MOV.":account?.platform==="instagram"?"Instagram الشخصي يدعم الصور فقط.":"رفع الوسائط اختياري لهذا الحساب.";
+}
 
 /* المحتوى */
 async function generate(){
@@ -319,26 +383,39 @@ async function generate(){
     $("result-card").style.display="block";toast("جاهز، راجعه وعدّله");
   }catch(e){toast(e.message)}
 }
+function updateContentAccounts(){
+  const previous=$("c-account").value;
+  const available=accountsCache.filter(account=>account.active&&account.platform===$("c-platform").value);
+  const opts=available.map(account=>`<option value="${account.id}">${esc(account.platform)} :: ${esc(account.username)}</option>`).join("");
+  $("c-account").innerHTML=opts||"<option value=''>لا يوجد حساب نشط لهذه المنصة</option>";
+  if(available.some(account=>String(account.id)===previous)) $("c-account").value=previous;
+  updateMediaControls();
+}
 async function schedulePost(){
   try{
-    const r=await api("content/schedule",{account_id:$("c-account").value,content:$("c-result").value,time:$("c-time").value});
-    toast("مجدول على "+r.at);$("result-card").style.display="none";loadPosts();
+    const payload={account_id:$("c-account").value,content:$("c-result").value,time:$("c-time").value};
+    const account=accountsCache.find(item=>String(item.id)===$("c-account").value);
+    if(account?.platform==="instagram"&&account.type==="business")payload.media_url=$("media-url").value.trim();
+    else if(selectedMedia)payload.media_id=selectedMedia.media_id;
+    const r=await api("content/schedule",payload);
+    toast("مجدول على "+r.at);$("result-card").style.display="none";selectedMedia=null;$("media-file").value="";$("media-status").textContent="";$("media-url").value="";loadPosts();
   }catch(e){toast(e.message)}
 }
 async function loadPosts(){
   try{
     const list=await api("posts");
-    $("posts-list").innerHTML=list.length?list.slice(-6).reverse().map(p=>
+     $("posts-list").innerHTML=list.length?list.slice(-6).reverse().map(p=>
       `<div class="item"><div class="top"><span class="who">${new Date(p.scheduled_at*1000).toLocaleString("ar",{weekday:"short",hour:"2-digit",minute:"2-digit"})}</span>
        <span class="tag">${p.status==="pending"?"مجدول":p.status==="published"?"منشور":"فشل"}</span></div>
-       <p>${esc(p.content).slice(0,90)}</p></div>`).join("")
+       <p>${esc(p.content).slice(0,90)}</p>${p.status==="pending"?`<button class="btn small bad" onclick="cancelPost(${p.id})">إلغاء الجدولة</button>`:""}</div>`).join("")
       : `<div class="empty">لا منشورات مجدولة</div>`;
   }catch(e){}
 }
 async function refreshAccountSelects(){
   try{
-    const list=await api("accounts");const opts=list.map(a=>`<option value="${a.id}">${esc(a.platform)} :: ${esc(a.username)}</option>`).join("");
-    $("c-account").innerHTML=opts||"<option value=''>لا حسابات</option>";$("t-account").innerHTML=opts||"<option value=''>لا حسابات</option>";
+    const list=await api("accounts");accountsCache=list;const opts=list.map(a=>`<option value="${a.id}" ${a.active?"":"disabled"}>${esc(a.platform)} :: ${esc(a.username)}${a.active?"":" (متوقف)"}</option>`).join("");
+    $("t-account").innerHTML=opts||"<option value=''>لا حسابات</option>";
+    updateContentAccounts();
     loadPosts();
   }catch(e){}
 }
@@ -366,6 +443,7 @@ async function approveQ(id){
   }catch(e){toast(e.message)}
 }
 async function rejectQ(id){await api("queue/"+id+"/reject",{});loadQueue();loadDash();}
+async function cancelPost(id){try{await api("posts/"+id,{method:"DELETE"});toast("أُلغيت الجدولة");loadPosts();}catch(e){toast(e.message)}}
 
 /* الإعدادات */
 async function loadSettings(){
@@ -393,6 +471,9 @@ async function saveSettings(){
 }
 
 /* الساعة + أول تحميل */
+$("c-account").addEventListener("change",updateMediaControls);
+$("c-platform").addEventListener("change",updateContentAccounts);
+renderCredentialFields();
 setInterval(()=>{$("clock").textContent=new Date().toLocaleTimeString("ar",{hour:"2-digit",minute:"2-digit"})},1000);
 loadDash(); loadAccounts(); refreshAccountSelects();
 </script>

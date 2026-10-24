@@ -10,7 +10,7 @@ _client = None
 def _client_():
     global _client
     if _client is None:
-        api_key = config.THAURA_API_KEY or db.get_setting("thaura_api_key", "")
+        api_key = config.THAURA_API_KEY or db.get_api_key("")
         if not api_key:
             raise RuntimeError("لا يوجد مفتاح Thaura API. أضفه في الإعدادات.")
         _client = OpenAI(api_key=api_key, base_url=config.THAURA_BASE_URL)

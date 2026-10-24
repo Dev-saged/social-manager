@@ -15,8 +15,9 @@ def main():
     init_db()
     start()  # مجدول الخلفية: نشر المنشورات + إطلاق التعليقات الموافق عليها
     from core.server import app
-    # منفذ داخلي للجهاز فقط؛ عدّله إذا طلبه WebToApp في إعدادات المنفذ
-    app.run(host="127.0.0.1", port=8080, threaded=True, debug=False)
+    # يبقى محلياً؛ يتيح WebToApp تمرير منفذ مختلف عبر البيئة.
+    port = int(os.getenv("PORT", "8080"))
+    app.run(host="127.0.0.1", port=port, threaded=True, debug=False)
 
 
 if __name__ == "__main__":

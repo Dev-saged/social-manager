@@ -13,6 +13,10 @@ def _key():
         if os.path.exists(config.SECRET_KEY_PATH):
             with open(config.SECRET_KEY_PATH, "rb") as f:
                 _KEY = f.read()
+            try:
+                os.chmod(config.SECRET_KEY_PATH, 0o600)
+            except OSError:
+                pass
         else:
             _KEY = Fernet.generate_key()
             with open(config.SECRET_KEY_PATH, "wb") as f:

@@ -11,7 +11,11 @@ THAURA_MODEL = "thaura"
 
 # ---- مجلد البيانات (قاعدة البيانات + مفتاح التشفير) ----
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".social_manager")
-os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, mode=0o700, exist_ok=True)
+try:
+    os.chmod(DATA_DIR, 0o700)
+except OSError:
+    pass
 DB_PATH = os.path.join(DATA_DIR, "social_manager.db")
 SECRET_KEY_PATH = os.path.join(DATA_DIR, "secret.key")
 

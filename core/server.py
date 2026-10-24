@@ -7,17 +7,52 @@ import threading
 import json
 import os
 import datetime
+import re
+import uuid
+from urllib.parse import urlsplit
 from flask import Flask, request, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
 import config
 from core import database as db
 from core import interaction
 from core import ai_engine
 
 app = Flask(__name__, static_folder=None)
+app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
 UI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+MEDIA_DIR = os.path.join(config.DATA_DIR, "media")
+ALLOWED_MEDIA = {"jpg", "jpeg", "png", "webp", "mp4", "mov"}
+ACCOUNT_FIELDS = {
+    ("instagram", "personal"): {"password"},
+    ("instagram", "business"): {"access_token", "ig_user_id"},
+    ("facebook", "personal"): {"access_token", "page_id"},
+    ("x", "personal"): {"api_key", "api_secret", "access_token", "access_token_secret"},
+}
 
 # حالة بناء الطابور (تُقرأ من الواجهة بالاستقصاء)
 _build_state = {"running": False, "progress": "", "added": 0, "error": ""}
+
+
+@app.before_request
+def restrict_local_api():
+    if not request.path.startswith("/api/"):
+        return None
+    host = urlsplit(f"//{request.host}").hostname
+    allowed_hosts = {"127.0.0.1", "localhost", "::1"}
+    allowed_hosts.update(filter(None, os.getenv("APP_ALLOWED_HOSTS", "").lower().split(",")))
+    if host not in allowed_hosts:
+        return jsonify({"error": "اسم مضيف غير مسموح"}), 403
+    origin = request.headers.get("Origin")
+    if origin:
+        parsed = urlsplit(origin)
+        if parsed.scheme not in ("http", "https") or parsed.netloc.lower() != request.host.lower():
+            return jsonify({"error": "مصدر الطلب غير مسموح"}), 403
+    return None
+
+
+@app.errorhandler(413)
+def request_too_large(_error):
+    return jsonify({"error": "حجم الملف يتجاوز الحد الأقصى (100 ميغابايت)"}), 413
 
 
 @app.get("/")
@@ -58,15 +93,39 @@ def add_account():
     data = request.get_json(force=True)
     platform = (data.get("platform") or "").strip().lower()
     username = (data.get("username") or "").strip()
+    account_type = (data.get("type") or "personal").strip().lower()
+    if platform == "instagram" and account_type not in ("personal", "business"):
+        return jsonify({"error": "نوع حساب Instagram غير صحيح"}), 400
+    if platform != "instagram":
+        account_type = "personal"
     if platform not in ("instagram", "facebook", "x", "youtube") or not username:
         return jsonify({"error": "منصة غير صحيحة أو اسم مستخدم فارغ"}), 400
-    db.add_account(platform, username, data.get("credentials") or {}, data.get("type", "personal"))
+    credentials = data.get("credentials") or {}
+    if not isinstance(credentials, dict):
+        return jsonify({"error": "بيانات الدخول غير صحيحة"}), 400
+    required = ACCOUNT_FIELDS.get((platform, account_type), set())
+    missing = sorted(field for field in required if not str(credentials.get(field, "")).strip())
+    if missing:
+        return jsonify({"error": f"الحقول المطلوبة: {', '.join(missing)}"}), 400
+    db.add_account(platform, username, credentials, account_type)
     return jsonify({"ok": True})
 
 
 @app.delete("/api/accounts/<int:account_id>")
 def delete_account(account_id):
     db.delete_account(account_id)
+    return jsonify({"ok": True})
+
+
+@app.post("/api/accounts/<int:account_id>/active")
+def set_account_active(account_id):
+    data = request.get_json(force=True)
+    account = db.get_account(account_id)
+    if not account:
+        return jsonify({"error": "حساب غير موجود"}), 404
+    if not isinstance(data.get("active"), bool):
+        return jsonify({"error": "حالة الحساب غير صحيحة"}), 400
+    db.set_account_active(account_id, data["active"])
     return jsonify({"ok": True})
 
 
@@ -99,6 +158,11 @@ def add_target():
     username = (data.get("username") or "").strip()
     if not account_id or not username:
         return jsonify({"error": "اختر حساباً واكتب اسم الهدف"}), 400
+    account = db.get_account(account_id)
+    if not account:
+        return jsonify({"error": "الحساب غير موجود"}), 404
+    if not account["active"]:
+        return jsonify({"error": "فعّل الحساب قبل إضافة أهداف له"}), 400
     db.add_target(account_id, username)
     return jsonify({"ok": True})
 
@@ -129,11 +193,46 @@ def schedule_content():
     data = request.get_json(force=True)
     account_id = int(data.get("account_id") or 0)
     content = (data.get("content") or "").strip()
-    media_path = data.get("media_path") or None
+    media_id = (data.get("media_id") or "").strip()
+    media_url = (data.get("media_url") or "").strip()
     time_str = (data.get("time") or "").strip()
     if not account_id or not content:
         return jsonify({"error": "اختر الحساب واكتب المحتوى"}), 400
     try:
+        account = db.get_account(account_id)
+        if not account:
+            return jsonify({"error": "الحساب غير موجود"}), 404
+        if not account["active"]:
+            return jsonify({"error": "فعّل الحساب قبل جدولة النشر"}), 400
+        media_path = None
+        media_ext = ""
+        if media_id:
+            match = re.fullmatch(r"([a-f0-9]{32})\.(jpg|jpeg|png|webp|mp4|mov)", media_id)
+            if not match:
+                return jsonify({"error": "معرّف الملف غير صالح"}), 400
+            media_path = os.path.join(MEDIA_DIR, media_id)
+            if not os.path.isfile(media_path):
+                return jsonify({"error": "الملف المرفوع غير موجود"}), 400
+            media_ext = match.group(2)
+        if media_url:
+            parsed_url = urlsplit(media_url)
+            if parsed_url.scheme != "https" or not parsed_url.hostname or parsed_url.username:
+                return jsonify({"error": "رابط الوسائط يجب أن يكون HTTPS صالحاً"}), 400
+            if account["platform"] != "instagram" or account["account_type"] != "business":
+                return jsonify({"error": "الرابط العام للوسائط مطلوب فقط لحساب Instagram Business"}), 400
+            if os.path.splitext(parsed_url.path)[1].lower() not in (".jpg", ".jpeg"):
+                return jsonify({"error": "Instagram Business يتطلب رابط صورة JPEG عام"}), 400
+            media_path = media_url
+        if account["platform"] == "instagram" and account["account_type"] == "business" and not media_url:
+            return jsonify({"error": "Instagram Business يحتاج رابط صورة JPEG عام"}), 400
+        if account["platform"] == "youtube" and media_ext not in ("mp4", "mov"):
+            return jsonify({"error": "نشر YouTube يحتاج ملف فيديو MP4 أو MOV مرفوعاً"}), 400
+        if account["platform"] == "instagram" and account["account_type"] == "personal" and media_ext not in ("jpg", "jpeg", "png", "webp"):
+            return jsonify({"error": "Instagram الشخصي يدعم رفع الصور فقط حالياً"}), 400
+        if account["platform"] == "facebook" and media_ext not in ("", "jpg", "jpeg", "png", "webp"):
+            return jsonify({"error": "Facebook يدعم المنشورات النصية أو الصور فقط حالياً"}), 400
+        if account["platform"] == "x" and media_ext not in ("", "jpg", "jpeg", "png", "webp"):
+            return jsonify({"error": "X يدعم المنشورات النصية أو الصور فقط حالياً"}), 400
         hh, mm = map(int, time_str.split(":"))
         now = datetime.datetime.now()
         when = now.replace(hour=hh, minute=mm, second=0)
@@ -145,12 +244,39 @@ def schedule_content():
         return jsonify({"error": str(e)}), 400
 
 
+@app.post("/api/media")
+def upload_media():
+    uploaded = request.files.get("file")
+    if not uploaded or not uploaded.filename:
+        return jsonify({"error": "اختر ملفاً أولاً"}), 400
+    filename = secure_filename(uploaded.filename)
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension not in ALLOWED_MEDIA:
+        return jsonify({"error": "الصيغ المدعومة: JPG, PNG, WEBP, MP4, MOV"}), 400
+    os.makedirs(MEDIA_DIR, mode=0o700, exist_ok=True)
+    media_id = f"{uuid.uuid4().hex}.{extension}"
+    path = os.path.join(MEDIA_DIR, media_id)
+    uploaded.save(path)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    return jsonify({"media_id": media_id, "name": filename, "extension": extension})
+
+
 @app.get("/api/posts")
 def list_posts():
     return jsonify([
-        {"id": p["id"], "content": p["content"], "scheduled_at": p["scheduled_at"], "status": p["status"]}
+        {"id": p["id"], "account_id": p["account_id"], "content": p["content"], "scheduled_at": p["scheduled_at"], "status": p["status"]}
         for p in db.list_scheduled_posts()
     ])
+
+
+@app.delete("/api/posts/<int:post_id>")
+def delete_post(post_id):
+    if not db.delete_scheduled_post(post_id):
+        return jsonify({"error": "المنشور غير موجود أو بدأ نشره بالفعل"}), 404
+    return jsonify({"ok": True})
 
 
 # ---------- طابور التفاعل ----------
@@ -196,13 +322,15 @@ def queue():
 
 @app.post("/api/queue/<int:comment_id>/approve")
 def approve(comment_id):
-    interaction.approve(comment_id)
+    if not interaction.approve(comment_id):
+        return jsonify({"error": "الاقتراح غير موجود أو تمت معالجته مسبقاً"}), 409
     return jsonify({"ok": True})
 
 
 @app.post("/api/queue/<int:comment_id>/reject")
 def reject(comment_id):
-    interaction.reject(comment_id)
+    if not interaction.reject(comment_id):
+        return jsonify({"error": "الاقتراح غير موجود أو تمت معالجته مسبقاً"}), 409
     return jsonify({"ok": True})
 
 
@@ -212,7 +340,8 @@ def edit_comment(comment_id):
     text = (data.get("text") or "").strip()
     if not text:
         return jsonify({"error": "النص فارغ"}), 400
-    interaction.edit_and_approve(comment_id, text)
+    if not interaction.edit_and_approve(comment_id, text):
+        return jsonify({"error": "الاقتراح غير موجود أو تمت معالجته مسبقاً"}), 409
     return jsonify({"ok": True})
 
 
@@ -231,7 +360,7 @@ def save_settings():
     if "persona" in data:
         db.set_setting("persona", data["persona"])
     if data.get("api_key"):
-        db.set_setting("thaura_api_key", data["api_key"])
+        db.set_api_key(data["api_key"])
         import core.ai_engine as ai
         ai._client = None  # مفتاح جديد: أعِد بناء عميل الذكاء
     return jsonify({"ok": True})

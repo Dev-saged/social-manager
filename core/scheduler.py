@@ -7,6 +7,7 @@ import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 from core import database as db
 from platforms import get as get_adapter
+from platforms.base import RateLimitExceeded
 
 _sched = None
 
@@ -49,29 +50,34 @@ def _adapter_for(account_id):
 
 def _publish_due():
     for post in db.due_posts():
-        adapter, acc = _adapter_for(post["account_id"])
-        if not adapter:
-            db.mark_post_status(post["id"], "failed", "الحساب غير موجود أو غير مفعّل")
-            continue
+        acc = db.get_account(post["account_id"])
         try:
+            adapter, acc = _adapter_for(post["account_id"])
+            if not adapter:
+                db.mark_post_status(post["id"], "failed", "الحساب غير موجود أو غير مفعّل")
+                continue
             adapter.publish(post["content"], post["media_path"])
             db.mark_post_status(post["id"], "published")
             db.log(acc["platform"], "publish", f"post #{post['id']}")
         except Exception as e:
             db.mark_post_status(post["id"], "failed", str(e))
-            db.log(acc["platform"], "publish", str(e), ok=0)
+            db.log(acc["platform"] if acc else "system", "publish", str(e), ok=0)
 
 
 def _release_approved_comments():
     for c in db.approved_due():
-        adapter, acc = _adapter_for(c["account_id"])
-        if not adapter:
-            db.mark_comment_status(c["id"], "failed", "الحساب غير مفعّل")
-            continue
+        acc = db.get_account(c["account_id"])
         try:
+            adapter, acc = _adapter_for(c["account_id"])
+            if not adapter:
+                db.mark_comment_status(c["id"], "failed", "الحساب غير مفعّل")
+                continue
             adapter.comment(c["post_id"], c["proposed_comment"])
             db.mark_comment_status(c["id"], "posted")
             db.log(c["platform"], "comment", f"{c['target_username']} :: {c['proposed_comment'][:60]}")
+        except RateLimitExceeded as e:
+            db.defer_rate_limited_comment(c["id"])
+            db.log(c["platform"], "comment_deferred", str(e), ok=0)
         except Exception as e:
             db.mark_comment_status(c["id"], "failed", str(e))
             db.log(c["platform"], "comment", str(e), ok=0)

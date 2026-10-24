@@ -61,14 +61,12 @@ def build_queue(limit_per_target=3, on_progress=None):
 
 
 def approve(comment_id):
-    db.approve_comment(comment_id)  # ينشرها المجدول تلقائياً بعد تأخير عشوائي
+    return db.approve_comment(comment_id)  # ينشرها المجدول تلقائياً بعد تأخير عشوائي
 
 
 def reject(comment_id):
-    db.reject_comment(comment_id)
+    return db.reject_comment(comment_id)
 
 
 def edit_and_approve(comment_id, new_text):
-    with db._conn() as c:
-        c.execute("UPDATE comment_queue SET proposed_comment=? WHERE id=?", (new_text, comment_id))
-    db.approve_comment(comment_id)
+    return db.approve_comment(comment_id, proposed_comment=new_text)

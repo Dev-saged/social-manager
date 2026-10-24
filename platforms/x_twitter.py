@@ -4,7 +4,7 @@
 وإرسال الردود والجلب بكميات يحتاج عادة باقة مدفوعة. راجع الباقات في حسابك.
 """
 import tweepy
-from platforms.base import BasePlatform
+from platforms.base import BasePlatform, RateLimitExceeded
 
 
 class XPlatform(BasePlatform):
@@ -13,6 +13,13 @@ class XPlatform(BasePlatform):
 
     def __init__(self, account_row):
         super().__init__(account_row)
+        auth = tweepy.OAuth1UserHandler(
+            self.creds["api_key"],
+            self.creds["api_secret"],
+            self.creds["access_token"],
+            self.creds["access_token_secret"],
+        )
+        self.media_api = tweepy.API(auth)
         self.client = tweepy.Client(
             consumer_key=self.creds["api_key"],
             consumer_secret=self.creds["api_secret"],
@@ -22,17 +29,21 @@ class XPlatform(BasePlatform):
         )
 
     def publish(self, text, media_path=None):
-        self.client.create_tweet(text=text)
+        if media_path:
+            media = self.media_api.media_upload(filename=media_path)
+            self.client.create_tweet(text=text, media_ids=[media.media_id_string])
+        else:
+            self.client.create_tweet(text=text)
 
     def comment(self, post_id, text):
         """التعليق على X هو رد على تغريدة."""
         if not self.comment_limiter.allow():
-            raise RuntimeError("تم تجاوز حد الردود لهذه الساعة")
+            raise RateLimitExceeded("تم تجاوز حد الردود لهذه الساعة")
         self.client.create_tweet(text=text, in_reply_to_tweet_id=post_id)
 
     def like(self, post_id):
         if not self.like_limiter.allow():
-            raise RuntimeError("تم تجاوز حد الإعجابات لهذه الساعة")
+            raise RateLimitExceeded("تم تجاوز حد الإعجابات لهذه الساعة")
         self.client.like(post_id)
 
     def recent_posts(self, username, limit=5):

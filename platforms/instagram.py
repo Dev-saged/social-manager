@@ -6,7 +6,7 @@
   خطر الحظر موجود فعلياً، لذلك معدلاتها منخفضة جداً والتفاعل يمر دائماً بموافقتك اليدوية.
 """
 import requests
-from platforms.base import BasePlatform
+from platforms.base import BasePlatform, RateLimitExceeded
 
 GRAPH = "https://graph.facebook.com/v21.0"
 
@@ -59,7 +59,7 @@ class InstagramPlatform(BasePlatform):
 
     def comment(self, post_id, text):
         if not self.comment_limiter.allow():
-            raise RuntimeError("تم تجاوز حد التعليقات لهذه الساعة")
+            raise RateLimitExceeded("تم تجاوز حد التعليقات لهذه الساعة")
         if self.mode == "business":
             self._graph(f"{post_id}/comments", "POST", message=text)
         else:
@@ -67,7 +67,7 @@ class InstagramPlatform(BasePlatform):
 
     def like(self, post_id):
         if not self.like_limiter.allow():
-            raise RuntimeError("تم تجاوز حد الإعجابات لهذه الساعة")
+            raise RateLimitExceeded("تم تجاوز حد الإعجابات لهذه الساعة")
         if self.mode != "personal":
             raise ValueError("الإعجاب متاح في الوضع الشخصي فقط (Graph API لا يوفره)")
         self._personal_client().media_like(post_id)

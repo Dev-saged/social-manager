@@ -57,7 +57,20 @@ def init_db():
             ts REAL, platform TEXT, action TEXT, detail TEXT, ok INTEGER
         );
         CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE IF NOT EXISTS rate_events(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            ts REAL NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_rate_events_account_action_ts
+            ON rate_events(account_id, action, ts);
         """)
+    try:
+        import os
+        os.chmod(config.DB_PATH, 0o600)
+    except OSError:
+        pass
 
 
 # ---------- الحسابات ----------
@@ -90,6 +103,29 @@ def delete_account(account_id):
     with _conn() as c:
         c.execute("DELETE FROM accounts WHERE id=?", (account_id,))
         c.execute("DELETE FROM targets WHERE account_id=?", (account_id,))
+        c.execute("DELETE FROM scheduled_posts WHERE account_id=?", (account_id,))
+        c.execute("DELETE FROM comment_queue WHERE account_id=?", (account_id,))
+        c.execute("DELETE FROM rate_events WHERE account_id=?", (account_id,))
+
+
+def reserve_rate_slot(account_id, action, max_per_hour, now=None):
+    if action not in ("comments", "likes") or max_per_hour <= 0:
+        return False
+    now = time.time() if now is None else now
+    with _conn() as c:
+        c.execute("BEGIN IMMEDIATE")
+        c.execute("DELETE FROM rate_events WHERE ts<=?", (now - 3600,))
+        count = c.execute(
+            "SELECT COUNT(*) FROM rate_events WHERE account_id=? AND action=? AND ts>?",
+            (account_id, action, now - 3600),
+        ).fetchone()[0]
+        if count >= max_per_hour:
+            return False
+        c.execute(
+            "INSERT INTO rate_events(account_id, action, ts) VALUES(?,?,?)",
+            (account_id, action, now),
+        )
+        return True
 
 
 # ---------- النشر المجدول ----------
@@ -118,6 +154,12 @@ def list_scheduled_posts():
         return c.execute("SELECT * FROM scheduled_posts ORDER BY scheduled_at").fetchall()
 
 
+def delete_scheduled_post(post_id):
+    with _conn() as c:
+        cur = c.execute("DELETE FROM scheduled_posts WHERE id=? AND status='pending'", (post_id,))
+        return cur.rowcount > 0
+
+
 # ---------- الأهداف (أصدقاء نتفاعل مع منشوراتهم) ----------
 def add_target(account_id, username):
     with _conn() as c:
@@ -139,7 +181,10 @@ def delete_target(target_id):
 # ---------- طابور التعليقات ----------
 def add_to_queue(account_id, platform, target_username, post_id, post_text, analysis, proposed_comment):
     with _conn() as c:
-        exists = c.execute("SELECT 1 FROM comment_queue WHERE post_id=?", (post_id,)).fetchone()
+        exists = c.execute(
+            "SELECT 1 FROM comment_queue WHERE account_id=? AND platform=? AND post_id=?",
+            (account_id, platform, str(post_id)),
+        ).fetchone()
         if exists:
             return None
         cur = c.execute(
@@ -154,24 +199,42 @@ def pending_comments():
         return c.execute("SELECT * FROM comment_queue WHERE status='pending' ORDER BY id").fetchall()
 
 
-def approve_comment(comment_id):
+def approve_comment(comment_id, proposed_comment=None):
     """الموافقة تضيف تأخيراً عشوائياً واقعياً قبل النشر الفعلي."""
     limits_min = 180
     limits_max = 3600
     with _conn() as c:
-        row = c.execute("SELECT platform FROM comment_queue WHERE id=?", (comment_id,)).fetchone()
-        if row and row["platform"] in config.RATE_LIMITS:
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute(
+            "SELECT platform FROM comment_queue WHERE id=? AND status='pending'",
+            (comment_id,),
+        ).fetchone()
+        if not row:
+            return False
+        if row["platform"] in config.RATE_LIMITS:
             limits_min = config.RATE_LIMITS[row["platform"]]["min_delay_sec"]
             limits_max = config.RATE_LIMITS[row["platform"]]["max_delay_sec"]
-        c.execute(
-            "UPDATE comment_queue SET status='approved', release_at=? WHERE id=?",
-            (time.time() + random.uniform(limits_min, limits_max), comment_id),
-        )
+        release_at = time.time() + random.uniform(limits_min, limits_max)
+        if proposed_comment is None:
+            cur = c.execute(
+                "UPDATE comment_queue SET status='approved', release_at=? WHERE id=? AND status='pending'",
+                (release_at, comment_id),
+            )
+        else:
+            cur = c.execute(
+                "UPDATE comment_queue SET proposed_comment=?, status='approved', release_at=? WHERE id=? AND status='pending'",
+                (proposed_comment, release_at, comment_id),
+            )
+        return cur.rowcount == 1
 
 
 def reject_comment(comment_id):
     with _conn() as c:
-        c.execute("UPDATE comment_queue SET status='rejected' WHERE id=?", (comment_id,))
+        cur = c.execute(
+            "UPDATE comment_queue SET status='rejected' WHERE id=? AND status='pending'",
+            (comment_id,),
+        )
+        return cur.rowcount == 1
 
 
 def approved_due():
@@ -179,6 +242,27 @@ def approved_due():
         return c.execute(
             "SELECT * FROM comment_queue WHERE status='approved' AND release_at<=?", (time.time(),)
         ).fetchall()
+
+
+def defer_rate_limited_comment(comment_id, now=None):
+    now = time.time() if now is None else now
+    with _conn() as c:
+        row = c.execute(
+            "SELECT account_id FROM comment_queue WHERE id=? AND status='approved'",
+            (comment_id,),
+        ).fetchone()
+        if not row:
+            return False
+        oldest = c.execute(
+            "SELECT MIN(ts) FROM rate_events WHERE account_id=? AND action='comments' AND ts>?",
+            (row["account_id"], now - 3600),
+        ).fetchone()[0]
+        release_at = max(now + 60, (oldest + 3600) if oldest is not None else now + 60)
+        c.execute(
+            "UPDATE comment_queue SET release_at=? WHERE id=? AND status='approved'",
+            (release_at, comment_id),
+        )
+        return True
 
 
 def mark_comment_status(comment_id, status, error=""):
@@ -216,3 +300,20 @@ def get_setting(key, default=""):
     with _conn() as c:
         row = c.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
         return row["value"] if row else default
+
+
+def set_api_key(value):
+    from core import accounts as acc_store
+    set_setting("thaura_api_key", acc_store.encrypt({"value": value}))
+
+
+def get_api_key(default=""):
+    from core import accounts as acc_store
+    stored = get_setting("thaura_api_key", "")
+    if not stored:
+        return default
+    try:
+        return acc_store.decrypt(stored).get("value", default)
+    except Exception:
+        set_api_key(stored)
+        return stored

@@ -1,22 +1,22 @@
 """الواجهة المشتركة لكل منصات التواصل + محدودية المعدل."""
-import time
 from abc import ABC, abstractmethod
+from core import database as db
+
+
+class RateLimitExceeded(RuntimeError):
+    pass
 
 
 class RateLimiter:
     """نافذة منزلقة بسيطة: يرفض السماح بعملية جديدة إذا تجاوزنا حد الساعة."""
 
-    def __init__(self, max_per_hour):
+    def __init__(self, account_id, action, max_per_hour):
+        self.account_id = account_id
+        self.action = action
         self.max_per_hour = max_per_hour
-        self._times = []
 
     def allow(self):
-        now = time.time()
-        self._times = [t for t in self._times if now - t < 3600]
-        if len(self._times) >= self.max_per_hour:
-            return False
-        self._times.append(now)
-        return True
+        return db.reserve_rate_slot(self.account_id, self.action, self.max_per_hour)
 
 
 class BasePlatform(ABC):
@@ -34,8 +34,9 @@ class BasePlatform(ABC):
             raise ValueError(f"بيانات الدخول ناقصة: {', '.join(missing)}")
         import config
         limits = config.RATE_LIMITS.get(self.name, {})
-        self.comment_limiter = RateLimiter(limits.get("comments_per_hour", 8))
-        self.like_limiter = RateLimiter(limits.get("likes_per_hour", 20))
+        account_id = self.account["id"]
+        self.comment_limiter = RateLimiter(account_id, "comments", limits.get("comments_per_hour", 8))
+        self.like_limiter = RateLimiter(account_id, "likes", limits.get("likes_per_hour", 20))
 
     @abstractmethod
     def publish(self, text, media_path=None):

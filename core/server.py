@@ -32,6 +32,9 @@ ACCOUNT_FIELDS = {
     ("instagram", "business"): {"access_token", "ig_user_id"},
     ("facebook", "personal"): {"access_token", "page_id"},
     ("x", "personal"): {"api_key", "api_secret", "access_token", "access_token_secret"},
+    ("telegram", "personal"): {"bot_token", "chat_id"},
+    ("bluesky", "personal"): {"identifier", "app_password"},
+    ("threads", "personal"): {"access_token", "user_id"},
 }
 
 # حالة بناء الطابور (تُقرأ من الواجهة بالاستقصاء)

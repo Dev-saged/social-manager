@@ -134,11 +134,90 @@ def init_db():
             created_at REAL
         );
         """)
+        _migrate(c)
     try:
         import os
         os.chmod(config.DB_PATH, 0o600)
     except OSError:
         pass
+
+
+# ترحيلات مرقّمة: تُضاف في آخر القائمة فقط، ولا يُعدَّل القديم منها
+MIGRATIONS = [
+    "ALTER TABLE post_targets ADD COLUMN error_code TEXT DEFAULT ''",
+    """CREATE TABLE IF NOT EXISTS account_health(
+        account_id INTEGER PRIMARY KEY, ok INTEGER, code TEXT DEFAULT '', message TEXT DEFAULT '',
+        hint TEXT DEFAULT '', detail TEXT DEFAULT '', checked_at REAL)""",
+    """CREATE TABLE IF NOT EXISTS publish_delays(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, target_id INTEGER, platform TEXT, due_at REAL, done_at REAL)""",
+    "DELETE FROM settings WHERE key='thaura_api_key'",
+]
+
+
+def _migrate(c):
+    ver = c.execute("PRAGMA user_version").fetchone()[0]
+    for i in range(ver, len(MIGRATIONS)):
+        try:
+            c.execute(MIGRATIONS[i])
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e):
+                raise
+        c.execute(f"PRAGMA user_version={i + 1}")
+
+
+def schema_version():
+    with _conn() as c:
+        return c.execute("PRAGMA user_version").fetchone()[0]
+
+
+def update_account_credentials(account_id, credentials):
+    from core import accounts as acc_store
+    with _conn() as c:
+        c.execute("UPDATE accounts SET credentials=? WHERE id=?", (acc_store.encrypt(credentials), account_id))
+
+
+def set_account_type(account_id, account_type):
+    with _conn() as c:
+        c.execute("UPDATE accounts SET account_type=? WHERE id=?", (account_type, account_id))
+
+
+# ---------- صحة الحسابات وسجل التأخير ----------
+def set_health(account_id, info):
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO account_health(account_id, ok, code, message, hint, detail, checked_at) VALUES(?,?,?,?,?,?,?) "
+            "ON CONFLICT(account_id) DO UPDATE SET ok=excluded.ok, code=excluded.code, message=excluded.message, "
+            "hint=excluded.hint, detail=excluded.detail, checked_at=excluded.checked_at",
+            (account_id, 1 if info.get("ok") else 0, info.get("code", ""), info.get("message", ""),
+             info.get("hint", ""), str(info.get("detail", ""))[:300], time.time()),
+        )
+
+
+def list_health():
+    with _conn() as c:
+        return {r["account_id"]: dict(r) for r in c.execute("SELECT * FROM account_health")}
+
+
+def record_delay(target_id, platform, due_at, done_at=None):
+    with _conn() as c:
+        c.execute("INSERT INTO publish_delays(target_id, platform, due_at, done_at) VALUES(?,?,?,?)",
+                  (target_id, platform, due_at, done_at or time.time()))
+        c.execute("DELETE FROM publish_delays WHERE id NOT IN (SELECT id FROM publish_delays ORDER BY id DESC LIMIT 200)")
+
+
+def recent_delays(limit=30):
+    with _conn() as c:
+        rows = c.execute("SELECT * FROM publish_delays ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [{"platform": r["platform"], "due_at": r["due_at"], "delay": max(0.0, r["done_at"] - r["due_at"])} for r in reversed(rows)]
+
+
+def overdue_count(now=None):
+    now = time.time() if now is None else now
+    with _conn() as c:
+        return c.execute(
+            "SELECT COUNT(*) FROM post_targets t JOIN post_groups g ON g.id=t.group_id "
+            "WHERE g.status='scheduled' AND t.status IN ('pending','waiting_network') AND t.due_at<=? AND t.next_try_at<=?",
+            (now - 60, now)).fetchone()[0]
 
 
 # ---------- الحسابات ----------
@@ -370,21 +449,34 @@ def get_setting(key, default=""):
         return row["value"] if row else default
 
 
-def set_api_key(value):
+def set_secret(name, value):
+    """يخزّن مفتاحاً حساساً مشفّراً (Oxion, Gemini, GitHub...). القيمة الفارغة تحذفه."""
     from core import accounts as acc_store
-    set_setting("thaura_api_key", acc_store.encrypt({"value": value}))
+    if not value:
+        with _conn() as c:
+            c.execute("DELETE FROM settings WHERE key=?", (name,))
+        return
+    set_setting(name, acc_store.encrypt({"value": value}))
 
 
-def get_api_key(default=""):
+def get_secret(name, default=""):
     from core import accounts as acc_store
-    stored = get_setting("thaura_api_key", "")
+    stored = get_setting(name, "")
     if not stored:
         return default
     try:
         return acc_store.decrypt(stored).get("value", default)
     except Exception:
-        set_api_key(stored)
-        return stored
+        return default
+
+
+def set_api_key(value):
+    """مفتاح Oxion (المزوّد الأساسي للذكاء)."""
+    set_secret("oxion_api_key", value)
+
+
+def get_api_key(default=""):
+    return get_secret("oxion_api_key", default)
 
 
 # ---------- مجموعات النشر (منشور واحد لعدة منصات) ----------
@@ -470,7 +562,7 @@ def cancel_group(group_id):
         if not g:
             return False, ""
         c.execute(
-            "UPDATE post_targets SET status='cancelled' WHERE group_id=? AND status IN ('pending','waiting_network','missed','failed')",
+            "UPDATE post_targets SET status='cancelled' WHERE group_id=? AND status IN ('pending','waiting_network','missed','failed','needs_you')",
             (group_id,),
         )
         still = c.execute(
@@ -493,17 +585,31 @@ def retry_target(target_id):
         return cur.rowcount == 1
 
 
-def claim_due_targets(now=None, grace_sec=12 * 3600):
-    """يحجز الأهداف المستحقة ذرّياً (publishing) قبل الإرسال. المتأخر عن المهلة يصير missed."""
+def due_platforms(now=None):
     now = time.time() if now is None else now
     with _conn() as c:
+        return [r[0] for r in c.execute(
+            "SELECT DISTINCT t.platform FROM post_targets t JOIN post_groups g ON g.id=t.group_id "
+            "WHERE g.status='scheduled' AND t.status IN ('pending','waiting_network') AND t.due_at<=? AND t.next_try_at<=?",
+            (now, now))]
+
+
+def claim_due_targets(now=None, grace_sec=12 * 3600, platform=None, limit=None):
+    """يحجز الأهداف المستحقة ذرّياً (publishing) قبل الإرسال. المتأخر عن المهلة يصير missed."""
+    now = time.time() if now is None else now
+    q = ("SELECT t.* FROM post_targets t JOIN post_groups g ON g.id=t.group_id "
+         "WHERE g.status='scheduled' AND t.status IN ('pending','waiting_network') "
+         "AND t.due_at<=? AND t.next_try_at<=?")
+    args = [now, now]
+    if platform:
+        q += " AND t.platform=?"
+        args.append(platform)
+    q += " ORDER BY t.due_at, t.id"
+    if limit:
+        q += f" LIMIT {int(limit)}"
+    with _conn() as c:
         c.execute("BEGIN IMMEDIATE")
-        rows = c.execute(
-            "SELECT t.* FROM post_targets t JOIN post_groups g ON g.id=t.group_id "
-            "WHERE g.status='scheduled' AND t.status IN ('pending','waiting_network') "
-            "AND t.due_at<=? AND t.next_try_at<=? ORDER BY t.due_at, t.id",
-            (now, now),
-        ).fetchall()
+        rows = c.execute(q, args).fetchall()
         claimed = []
         for r in rows:
             if now - r["due_at"] > grace_sec:
@@ -520,24 +626,41 @@ def claim_due_targets(now=None, grace_sec=12 * 3600):
         return claimed
 
 
-def recover_stuck_targets(now=None, older_than=900):
-    """هدف بقي publishing بعد قتل العملية: لا نعيد الإرسال أبداً لأن النتيجة غير معروفة."""
+def recover_stuck_targets(now=None, older_than=900, busy_platforms=()):
+    """هدف بقي publishing بعد قتل العملية: لا نعيد الإرسال أبداً لأن النتيجة غير معروفة.
+
+    المنصات التي يعمل عاملها الآن مستثناة، فرفع فيديو طويل لا يُعدّ عالقاً."""
     now = time.time() if now is None else now
+    q = ("UPDATE post_targets SET status='failed', error='توقفت العملية أثناء النشر، تحقق من الحساب قبل إعادة المحاولة', "
+         "error_code='unknown', updated_at=? WHERE status='publishing' AND updated_at<?")
+    args = [now, now - older_than]
+    busy = list(busy_platforms)
+    if busy:
+        q += f" AND platform NOT IN ({','.join('?' * len(busy))})"
+        args += busy
     with _conn() as c:
-        cur = c.execute(
-            "UPDATE post_targets SET status='failed', error='توقفت العملية أثناء النشر، تحقق من الحساب قبل إعادة المحاولة', updated_at=? "
-            "WHERE status='publishing' AND updated_at<?",
-            (now, now - older_than),
-        )
-        return cur.rowcount
+        return c.execute(q, args).rowcount
 
 
-def finish_target(target_id, status, error="", remote_id="", next_try_at=0):
+def finish_target(target_id, status, error="", remote_id="", next_try_at=0, error_code=""):
     with _conn() as c:
         c.execute(
-            "UPDATE post_targets SET status=?, error=?, remote_id=?, next_try_at=?, updated_at=? WHERE id=?",
-            (status, error[:500], remote_id, next_try_at, time.time(), target_id),
+            "UPDATE post_targets SET status=?, error=?, remote_id=?, next_try_at=?, error_code=?, updated_at=? WHERE id=?",
+            (status, error[:500], remote_id, next_try_at, error_code, time.time(), target_id),
         )
+
+
+def get_target(target_id):
+    with _conn() as c:
+        return c.execute("SELECT * FROM post_targets WHERE id=?", (target_id,)).fetchone()
+
+
+def confirm_manual_target(target_id):
+    """تأكيد أنك نشرت يدوياً منشوراً ينتظرك (مشاركة نصف آلية)."""
+    with _conn() as c:
+        return c.execute(
+            "UPDATE post_targets SET status='published', error='', error_code='', updated_at=? WHERE id=? AND status='needs_you'",
+            (time.time(), target_id)).rowcount == 1
 
 
 def group_media_if_done(group_id):

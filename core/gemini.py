@@ -24,7 +24,60 @@ def _key():
 
 
 def _model():
-    return db.get_setting("gemini_model", "") or DEFAULT_MODEL
+    return db.get_setting("gemini_model", "") or _recommended("text") or DEFAULT_MODEL
+
+
+def models(force=False):
+    """نماذج Gemini المتاحة لمفتاحك، مخزنة 6 ساعات."""
+    import time
+    cached = db.get_setting("gemini_models", "")
+    if cached and not force:
+        try:
+            data = json.loads(cached)
+            if time.time() - data.get("at", 0) < 6 * 3600:
+                return data["list"]
+        except ValueError:
+            pass
+    try:
+        r = requests.get(f"{API}/models", params={"pageSize": 200}, headers={"x-goog-api-key": _key()}, timeout=20)
+    except requests.RequestException as e:
+        raise GeminiError(f"تعذر الاتصال بـ Gemini: {e}") from e
+    if r.status_code in (401, 403):
+        raise GeminiError("مفتاح Gemini غير صالح أو غير مصرّح")
+    r.raise_for_status()
+    out = [{"id": m["name"].split("/", 1)[-1], "name": m.get("displayName", ""),
+            "methods": m.get("supportedGenerationMethods") or []} for m in r.json().get("models", [])]
+    db.set_setting("gemini_models", json.dumps({"at": time.time(), "list": out}, ensure_ascii=False))
+    return out
+
+
+def _ver(mid):
+    nums = re.findall(r"\d+(?:\.\d+)?", mid)
+    return float(nums[0]) if nums else 0.0
+
+
+def recommend(lst, role):
+    """text: أحدث flash مستقر (الأرخص والأقوى للمنشورات). image/video: أحدث نموذج من فئته."""
+    ids = [m["id"] for m in lst]
+    if role == "image":
+        pool = [i for i in ids if "image" in i and "pro" not in i] or [i for i in ids if "image" in i]
+    elif role == "video":
+        pool = [i for i in ids if "omni" in i]
+    else:
+        pool = [i for i in ids if "flash" in i and not any(x in i for x in ("image", "tts", "audio", "live", "exp", "preview", "omni", "embedding", "lite"))]
+        pool = pool or [i for i in ids if "flash" in i and "image" not in i]
+    pool.sort(key=lambda i: (_ver(i), "latest" not in i), reverse=True)
+    return pool[0] if pool else ""
+
+
+def _recommended(role):
+    try:
+        return recommend(models(), role)
+    except Exception:
+        import time
+        # فشل مؤقت: لا نعيد المحاولة قبل 10 دقائق حتى لا يتأخر كل طلب
+        db.set_setting("gemini_models", json.dumps({"at": time.time() - 6 * 3600 + 600, "list": []}))
+        return ""
 
 
 def _extract(resp):
@@ -109,8 +162,11 @@ _FORMAT = ('أعد JSON فقط بهذا الشكل بدون أي شرح: {"title
 def write_post(topic, tone="راقي وجذاب"):
     system = ("أنت كاتب محتوى عربي لوسائل التواصل. أسلوب صاحب الحساب: " + _persona() +
               " اكتب بالعربية الفصيحة المبسطة بدون مبالغة وبدون رموز تعبيرية كثيرة. " + _FORMAT)
-    text, _ = call(system, f"اكتب منشوراً عن: {topic}\nالنبرة: {tone}")
-    return _clean(parse_json(text))
+    from core import llm
+    res = llm.complete(system, f"اكتب منشوراً عن: {topic}\nالنبرة: {tone}")
+    post = _clean(parse_json(res["text"]))
+    post["provider"] = res["provider"]
+    return post
 
 
 def tech_news(recent_titles=(), tone="راقي وجذاب", include_source=True):
@@ -118,8 +174,11 @@ def tech_news(recent_titles=(), tone="راقي وجذاب", include_source=True)
               "(ذكاء اصطناعي، هواتف، برمجة، أمن، شركات تقنية). لا تخترع معلومات، التزم بما وجدته. "
               "اكتب المنشور بأسلوب صاحب الحساب: " + _persona() + " " + _FORMAT)
     avoid = ("\nتجنب هذه العناوين لأنها نُشرت سابقاً: " + "؛ ".join(recent_titles)) if recent_titles else ""
-    text, sources = call(system, f"النبرة: {tone}{avoid}", grounded=True, temperature=0.6)
+    from core import llm
+    res = llm.complete(system, f"النبرة: {tone}{avoid}", web=True, temperature=0.6)
+    text, sources = res["text"], res["sources"] or _urls(res["text"])
     post = _clean(parse_json(text))
+    post["provider"] = res["provider"]
     post["sources"] = sources[:3]
     if include_source and sources:
         link = sources[0]["url"]
@@ -127,6 +186,10 @@ def tech_news(recent_titles=(), tone="راقي وجذاب", include_source=True)
         if len(post["short"]) + 25 <= 280:
             post["short"] = f"{post['short']}\n{link}"
     return post
+
+
+def _urls(text):
+    return [{"title": "", "url": u} for u in dict.fromkeys(re.findall(r"https?://[^\s\"')\]]+", text))][:3]
 
 
 def _clean(d):

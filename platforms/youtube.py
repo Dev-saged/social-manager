@@ -95,8 +95,7 @@ class YouTubePlatform(BasePlatform):
     def stories(self, username=None):
         return []  # يوتيوب لا يوفر حالات عبر API
 
-    def validate(self):
-        try:
-            return self._api() is not None
-        except Exception:
-            return False
+    def probe(self):
+        res = self._api().channels().list(part="snippet", mine=True).execute()
+        items = res.get("items") or []
+        return {"channel": items[0]["snippet"]["title"] if items else ""}

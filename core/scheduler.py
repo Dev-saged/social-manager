@@ -6,6 +6,7 @@
 import datetime
 import os
 import threading
+import time
 from apscheduler.schedulers.background import BackgroundScheduler
 from core import database as db
 from core import publisher
@@ -16,6 +17,8 @@ from platforms import get as get_adapter
 from platforms.base import RateLimitExceeded
 
 _sched = None
+_last_refresh = {"at": 0.0}
+_tick_lock = threading.Lock()
 
 
 def start():
@@ -27,6 +30,7 @@ def start():
     _sched = BackgroundScheduler(daemon=True, timezone=datetime.timezone.utc)
     _sched.add_job(tick, "interval", seconds=30, id="tick", max_instances=1, coalesce=True)
     _sched.start()
+    db.set_setting("sched_started_at", str(time.time()))
     return _sched
 
 
@@ -42,6 +46,25 @@ def stop():
 
 
 def tick():
+    """دورة واحدة. القفل يمنع تداخل دورة المجدول مع استدراك يطلبه فتح التطبيق."""
+    if not _tick_lock.acquire(blocking=False):
+        return False
+    try:
+        _tick()
+    finally:
+        _tick_lock.release()
+    return True
+
+
+def _tick():
+    db.set_setting("hb_at", str(time.time()))
+    if time.time() - _last_refresh["at"] > 3600:
+        _last_refresh["at"] = time.time()
+        try:
+            from core import tokens
+            tokens.refresh_due()
+        except Exception as e:
+            db.log("system", "token_tick", str(e), ok=0)
     try:
         _publish_due()
     except Exception as e:

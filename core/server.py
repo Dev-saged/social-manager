@@ -28,7 +28,9 @@ UI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
 MEDIA_DIR = os.path.join(config.DATA_DIR, "media")
 ALLOWED_MEDIA = {"jpg", "jpeg", "png", "webp", "mp4", "mov"}
 ACCOUNT_FIELDS = {
-    ("instagram", "personal"): {"password"},
+    ("instagram", "personal"): set(),  # كلمة مرور أو sessionid (يُفحص بالأسفل)
+    ("instagram", "official"): {"access_token"},
+    ("facebook", "share"): set(),
     ("instagram", "business"): {"access_token", "ig_user_id"},
     ("facebook", "personal"): {"access_token", "page_id"},
     ("x", "personal"): {"api_key", "api_secret", "access_token", "access_token_secret"},
@@ -114,9 +116,11 @@ def add_account():
     platform = (data.get("platform") or "").strip().lower()
     username = (data.get("username") or "").strip()
     account_type = (data.get("type") or "personal").strip().lower()
-    if platform == "instagram" and account_type not in ("personal", "business"):
+    if platform == "instagram" and account_type not in ("personal", "business", "official"):
         return jsonify({"error": "نوع حساب Instagram غير صحيح"}), 400
-    if platform != "instagram":
+    if platform == "facebook" and account_type not in ("personal", "share"):
+        account_type = "personal"
+    if platform not in ("instagram", "facebook"):
         account_type = "personal"
     if platform not in platform_names() or not username:
         return jsonify({"error": "منصة غير صحيحة أو اسم مستخدم فارغ"}), 400
@@ -127,7 +131,36 @@ def add_account():
     missing = sorted(field for field in required if not str(credentials.get(field, "")).strip())
     if missing:
         return jsonify({"error": f"الحقول المطلوبة: {', '.join(missing)}"}), 400
+    credentials = {k: str(v).strip() for k, v in credentials.items() if str(v).strip()}
+    if (platform, account_type) == ("instagram", "personal") and not (credentials.get("password") or credentials.get("sessionid")):
+        return jsonify({"error": "أدخل كلمة المرور أو sessionid"}), 400
+    if account_type == "official" or platform == "threads":
+        import time as _t
+        credentials["refreshed_at"] = _t.time()
     db.add_account(platform, username, credentials, account_type)
+    return jsonify({"ok": True})
+
+
+@app.patch("/api/accounts/<int:account_id>/credentials")
+def update_credentials(account_id):
+    """يضيف أو يحدّث حقولاً (مثل رمز جديد، أو كلمة مرور بديلة لحساب رسمي) دون حذف الحساب."""
+    from core import accounts as acc_store
+    acc = db.get_account(account_id)
+    if not acc:
+        return jsonify({"error": "حساب غير موجود"}), 404
+    data = request.get_json(force=True)
+    patch = data.get("credentials") or {}
+    if not isinstance(patch, dict):
+        return jsonify({"error": "بيانات الدخول غير صحيحة"}), 400
+    creds = acc_store.decrypt(acc["credentials"])
+    for k, v in patch.items():
+        v = str(v).strip()
+        if v:
+            creds[k] = v
+            if k == "access_token":
+                import time as _t
+                creds["refreshed_at"] = _t.time()
+    db.update_account_credentials(account_id, creds)
     return jsonify({"ok": True})
 
 
@@ -154,12 +187,16 @@ def validate_account(account_id):
     acc = db.get_account(account_id)
     if not acc:
         return jsonify({"error": "حساب غير موجود"}), 404
+    from core import errors
     try:
         from platforms import get as get_adapter
-        ok = get_adapter(acc["platform"], acc).validate()
-        return jsonify({"ok": ok, "detail": "بيانات الدخول صحيحة" if ok else "فشل التحقق"})
+        res = get_adapter(acc["platform"], acc).check()
     except Exception as e:
-        return jsonify({"ok": False, "detail": str(e)})
+        res = errors.classify(e)
+        res.update(ok=False, info={})
+    db.set_health(account_id, res)
+    detail = res["message"] + (f" · {res['detail']}" if res.get("detail") else "")
+    return jsonify(dict(res, detail=detail))
 
 
 # ---------- الأهداف ----------
@@ -284,6 +321,15 @@ def upload_media():
     return jsonify({"media_id": media_id, "name": filename, "extension": extension})
 
 
+@app.get("/api/media/<media_id>")
+def get_media(media_id):
+    """معاينة الملف أو مشاركته يدوياً (فيسبوك الشخصي)."""
+    from core import media as media_mod
+    if not media_mod.valid_id(media_id):
+        return jsonify({"error": "غير موجود"}), 404
+    return send_from_directory(media_mod.media_dir(), media_id)
+
+
 @app.get("/api/posts")
 def list_posts():
     return jsonify([
@@ -368,13 +414,28 @@ def edit_comment(comment_id):
 # ---------- الإعدادات ----------
 @app.get("/api/settings")
 def get_settings():
+    from core import relay
     return jsonify({
         "persona": db.get_setting("persona", config.DEFAULT_PERSONA),
-        "has_api_key": bool(db.get_setting("thaura_api_key", "") or config.THAURA_API_KEY),
+        "has_api_key": bool(db.get_api_key(config.OXION_API_KEY)),
+        "has_oxion_key": bool(db.get_api_key(config.OXION_API_KEY)),
         "has_gemini_key": bool(db.get_gemini_key(config.GEMINI_API_KEY)),
         "gemini_model": db.get_setting("gemini_model", ""),
+        "gemini_image_model": db.get_setting("gemini_image_model", ""),
+        "gemini_video_model": db.get_setting("gemini_video_model", ""),
+        "oxion_model_text": db.get_setting("oxion_model_text", ""),
+        "oxion_model_web": db.get_setting("oxion_model_web", ""),
+        "oxion_model_vision": db.get_setting("oxion_model_vision", ""),
+        "ai_order": db.get_setting("ai_order", "oxion,gemini"),
+        "relay_repo": db.get_setting("relay_repo", ""),
+        "has_github_token": bool(db.get_secret("github_token")),
+        "relay_ready": relay.configured(),
         "missed_grace_hours": db.get_setting("missed_grace_hours", "12"),
     })
+
+
+_PLAIN_SETTINGS = ("gemini_model", "gemini_image_model", "gemini_video_model", "oxion_model_text",
+                   "oxion_model_web", "oxion_model_vision", "relay_repo", "relay_branch")
 
 
 @app.post("/api/settings")
@@ -384,15 +445,25 @@ def save_settings():
         db.set_setting("persona", data["persona"])
     if data.get("gemini_api_key"):
         db.set_gemini_key(data["gemini_api_key"].strip())
-    if "gemini_model" in data:
-        db.set_setting("gemini_model", str(data["gemini_model"]).strip())
+        db.set_setting("gemini_models", "")
+    for key in ("oxion_api_key", "api_key"):
+        if data.get(key):
+            db.set_api_key(str(data[key]).strip())
+            db.set_setting("oxion_models", "")
+    if data.get("github_token"):
+        db.set_secret("github_token", str(data["github_token"]).strip())
+    for key in _PLAIN_SETTINGS:
+        if key in data:
+            value = str(data[key]).strip()
+            if key == "relay_repo" and value and not re.fullmatch(r"[\w.-]+/[\w.-]+", value):
+                return jsonify({"error": "المستودع بصيغة owner/repo"}), 400
+            db.set_setting(key, value)
+    if "ai_order" in data:
+        order = [p for p in str(data["ai_order"]).split(",") if p in ("oxion", "gemini")]
+        db.set_setting("ai_order", ",".join(order) or "oxion,gemini")
     if "missed_grace_hours" in data:
         try:
             db.set_setting("missed_grace_hours", str(max(1, min(168, float(data["missed_grace_hours"])))))
         except (TypeError, ValueError):
             return jsonify({"error": "المهلة رقم بالساعات"}), 400
-    if data.get("api_key"):
-        db.set_api_key(data["api_key"])
-        import core.ai_engine as ai
-        ai._client = None  # مفتاح جديد: أعِد بناء عميل الذكاء
     return jsonify({"ok": True})

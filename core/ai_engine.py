@@ -1,31 +1,10 @@
-"""محرك الذكاء: تحليل البوستات وتوليد التعليقات والمحتوى عبر Thaura API."""
-import base64
-import requests
-import config
-from core import database as db
-
-_client = None  # المفتاح المخزَّن مؤقتاً، يُصفَّر من الإعدادات عند تغييره
+"""محرك الذكاء: تحليل البوستات وتوليد التعليقات والمحتوى عبر سلسلة المزوّدين (Oxion ثم Gemini)."""
+import json
+from core import llm
 
 
-def _key():
-    global _client
-    if _client is None:
-        api_key = config.THAURA_API_KEY or db.get_api_key("")
-        if not api_key:
-            raise RuntimeError("لا يوجد مفتاح Thaura API. أضفه في الإعدادات.")
-        _client = api_key
-    return _client
-
-
-def _chat(messages, json_mode=False, max_tokens=800):
-    body = {"model": config.THAURA_MODEL, "messages": messages, "max_tokens": max_tokens}
-    if json_mode:
-        body["response_format"] = {"type": "json_object"}
-    r = requests.post(config.THAURA_BASE_URL + "/chat/completions", json=body, timeout=60,
-                      headers={"Authorization": "Bearer " + _key()})
-    if not r.ok:
-        raise RuntimeError(f"Thaura {r.status_code}: {r.text[:200]}")
-    return r.json()["choices"][0]["message"]["content"]
+def _chat(system, user, json_mode=False, images=None, temperature=0.8):
+    return llm.complete(system, user, json_mode=json_mode, images=images, temperature=temperature)["text"]
 
 
 def analyze_post(post_text, image_b64=None):
@@ -35,11 +14,7 @@ def analyze_post(post_text, image_b64=None):
         'بهذا الشكل: {"topic": "...", "tone": "...", "sentiment": "positive/neutral/negative", '
         '"comment_angle": "زاوية تعليق ذكية تناسب البوست"}'
     )
-    content = [{"type": "text", "text": post_text or "(منشور بدون نص)"}]
-    if image_b64:
-        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}})
-    raw = _chat([{"role": "system", "content": system}, {"role": "user", "content": content}], json_mode=True)
-    import json
+    raw = _chat(system, post_text or "(منشور بدون نص)", json_mode=True, images=[image_b64] if image_b64 else None)
     try:
         return json.loads(raw)
     except Exception:
@@ -54,7 +29,7 @@ def generate_comment(analysis, persona, post_text):
         "بدون حشو أو مجاملات عامة مثل (تصوير رائع جداً)، ويجب أن يعكس فهماً حقيقياً لفكرة البوست."
     )
     user = f"تحليل البوست: {analysis}\n\nنص البوست: {post_text}\n\nاكتب التعليق الآن (النص فقط بدون أي شرح):"
-    return _chat([{"role": "system", "content": system}, {"role": "user", "content": user}], max_tokens=200).strip()
+    return _chat(system, user).strip()
 
 
 def generate_content(topic, platform, tone="راقي وجذاب"):
@@ -64,12 +39,7 @@ def generate_content(topic, platform, tone="راقي وجذاب"):
         '{"caption": "نص المنشور", "hashtags": ["#..."], "timing_tip": "أفضل وقت للنشر"}\n'
         f"المنصة: {platform}. اجعل النص مناسباً للمنصة: تويتر قصير، انستغرام وفيسبوك أطول مع سطور سهلة، يوتيوب عنوان ووصف."
     )
-    import json
-    raw = _chat(
-        [{"role": "system", "content": system},
-         {"role": "user", "content": f"اكتب منشوراً عن: {topic}. النبرة: {tone}"}],
-        json_mode=True,
-    )
+    raw = _chat(system, f"اكتب منشوراً عن: {topic}. النبرة: {tone}", json_mode=True)
     try:
         return json.loads(raw)
     except Exception:

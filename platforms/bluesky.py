@@ -77,9 +77,6 @@ class BlueskyPlatform(BasePlatform):
     def stories(self, username=None):
         return []
 
-    def validate(self):
-        try:
-            self._auth()
-            return True
-        except Exception:
-            return False
+    def probe(self):
+        self._auth()
+        return {"handle": self._session.get("handle", "")}

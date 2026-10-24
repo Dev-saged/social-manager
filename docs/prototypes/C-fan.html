@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none';style-src 'unsafe-inline' https://fonts.googleapis.com;font-src https://fonts.gstatic.com;script-src 'unsafe-inline';img-src data:">
+<title>مدير حساباتي · C-fan.html</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600;700&family=Sora:wght@500;600;700&display=swap">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);min-height:100dvh;padding:24px 12px 48px;-webkit-font-smoothing:antialiased}
+.stage{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;align-items:flex-start}
+.cap{width:100%;text-align:center;color:var(--mute);font:500 13px/1.4 var(--f-body);margin-bottom:-8px}
+.phone{position:relative;width:min(390px,100%);min-height:800px;border-radius:38px;overflow:hidden;background:var(--surface-0);border:1px solid var(--line);box-shadow:0 30px 80px -30px oklch(0 0 0/.6);isolation:isolate}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 0;font:600 13px var(--f-num);color:var(--ink)}
+svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;min-height:44px;min-width:44px}
+button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.phone{background:var(--surface-0)}
+.bg{position:absolute;inset:0;z-index:-1;background:radial-gradient(60% 40% at 80% 8%,oklch(0.7 0.17 65/.28),transparent),radial-gradient(50% 35% at 10% 40%,oklch(0.62 0.2 18/.2),transparent);animation:hue 14s ease-in-out infinite alternate}
+@keyframes hue{to{transform:translateY(40px) scale(1.08)}}
+.head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 0}
+.head h1{font:700 19px var(--f-display)}
+.chip{height:36px;padding:0 12px;border-radius:99px;background:var(--surface-1);border:1px solid var(--line);font-size:12px;display:flex;align-items:center;gap:6px}
+.chip.w{color:var(--primary)}
+.fan{position:relative;height:300px;margin:12px 0 0}
+.pv{position:absolute;inset-inline:50px;top:20px;height:236px;border-radius:26px;padding:16px;background:oklch(0.3 0.015 60/.6);backdrop-filter:blur(14px);border:1px solid oklch(1 0 0/.12);box-shadow:0 24px 50px -20px #000;transition:transform .6s cubic-bezier(.2,.9,.2,1);animation:fan .9s cubic-bezier(.2,.9,.2,1) both}
+.pv:nth-child(1){transform:rotate(-9deg) translate(-30px,14px);z-index:1}
+.pv:nth-child(2){transform:rotate(9deg) translate(30px,14px);z-index:2;animation-delay:.08s}
+.pv:nth-child(3){transform:rotate(0);z-index:3;animation-delay:.16s}
+@keyframes fan{from{transform:rotate(0) translate(0,0) scale(.9);opacity:0}}
+.pv .who{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute)}
+.pv .who b{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--primary);color:oklch(0.2 0.02 60);font:700 11px var(--f-num)}
+.pv p{margin-top:12px;font-size:14.5px;line-height:1.75}
+.pv .m{position:absolute;inset:auto 16px 14px;display:flex;justify-content:space-between;font:500 11px var(--f-num);color:var(--mute)}
+.pv.front .m span:last-child{color:var(--primary)}
+.sw{display:grid;place-items:center;gap:2px;color:var(--primary);font-size:12px;margin-top:-6px;animation:bob 1.8s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-8px)}}
+.dock{display:flex;justify-content:center;gap:10px;padding:14px 20px 0}
+.av{width:50px;height:50px;border-radius:18px;display:grid;place-items:center;font:700 12px var(--f-num);background:var(--surface-1);border:1px solid var(--line);color:var(--mute);position:relative}
+.av.on{background:var(--ink);color:var(--surface-0);transform:translateY(-6px)}
+.av.on::after{content:"";position:absolute;bottom:-9px;width:5px;height:5px;border-radius:50%;background:var(--primary)}
+.sheet{position:absolute;inset:auto 0 0;height:268px;border-radius:30px 30px 0 0;background:var(--surface-1);border-top:1px solid var(--line);padding:10px 20px 90px}
+.sheet::before{content:"";display:block;width:40px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 12px}
+.sheet h2{font:700 14px var(--f-body);margin-bottom:8px}
+.q{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line);font-size:13px}
+.q .t{font:600 13px var(--f-num);color:var(--primary);min-width:46px}
+.q small{color:var(--mute);display:block;font-size:11.5px}
+.dotc{width:9px;height:9px;border-radius:50%;margin-inline-start:auto}
+.nav{position:absolute;inset:auto 0 0;height:74px;display:flex;justify-content:space-around;align-items:center;background:oklch(0.14 0.01 60/.85);backdrop-filter:blur(16px);border-top:1px solid var(--line);color:var(--mute)}
+.nav button{display:grid;place-items:center;font-size:10.5px;gap:2px}
+.nav .on{color:var(--primary)}
+.gen{margin:14px 20px 0;padding:14px;border-radius:20px;background:var(--surface-1);border:1px solid var(--primary);display:flex;gap:10px;align-items:flex-start}
+.gen .sp{color:var(--primary)}
+.gen div{flex:1;font-size:13px;line-height:1.7}
+.sk{height:10px;border-radius:6px;background:linear-gradient(90deg,var(--line),var(--surface-0),var(--line));background-size:200%;animation:sh 1.4s linear infinite;margin-top:8px}
+@keyframes sh{to{background-position:-200%}}
+.opts{display:flex;gap:8px;padding:10px 20px 0;overflow-x:auto;scrollbar-width:none}
+.opt{flex:none;height:40px;padding:0 14px;border-radius:99px;border:1px solid var(--line);font-size:12.5px;display:flex;align-items:center;background:var(--surface-1)}
+.opt.on{background:var(--primary);color:oklch(0.2 0.02 60);border-color:var(--primary)}
+.release{position:absolute;inset:auto 20px 22px;height:58px;border-radius:99px;background:var(--primary);color:oklch(0.2 0.02 60);font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 14px 34px -10px var(--primary)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M8 3v4M16 3v4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-wifioff" viewBox="0 0 24 24"><path d="M3 3l18 18M5 12.5a10 10 0 015-2.6M9 16.2a5 5 0 016 0M12 20h.01M16.5 11a10 10 0 012.5 1.5M2 8.8a15 15 0 015-3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-news" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></symbol>
+</defs></svg>
+<script>
+const CONFIG={"brand": {"name": "مدير حساباتي", "direction": "مروحة"}, "palette": {"bg": ["oklch(0.93 0.01 70)", "oklch(0.12 0.01 60)"], "surface-0": ["oklch(0.97 0.006 70)", "oklch(0.18 0.012 60)"], "surface-1": ["oklch(0.94 0.01 70)", "oklch(0.24 0.014 60)"], "ink": ["oklch(0.22 0.02 60)", "oklch(0.96 0.008 80)"], "mute": ["oklch(0.5 0.02 60)", "oklch(0.72 0.02 70)"], "line": ["oklch(0.86 0.012 70)", "oklch(0.32 0.015 60)"], "primary": ["oklch(0.7 0.17 65)", "oklch(0.82 0.16 70)"], "accent": ["oklch(0.62 0.2 18)", "oklch(0.72 0.19 18)"], "ok": ["oklch(0.52 0.14 160)", "oklch(0.78 0.15 160)"], "danger": ["oklch(0.55 0.2 25)", "oklch(0.72 0.18 25)"]}, "fonts": {"body": "'Noto Kufi Arabic',sans-serif", "num": "'Sora',sans-serif", "display": "'Noto Kufi Arabic',sans-serif"}};
+(function(){const r=document.documentElement.style;
+for(const[k,v]of Object.entries(CONFIG.palette))r.setProperty('--'+k,'light-dark('+v[0]+','+v[1]+')');
+r.setProperty('--f-body',CONFIG.fonts.body);r.setProperty('--f-num',CONFIG.fonts.num);r.setProperty('--f-display',CONFIG.fonts.display);
+})();
+</script>
+<div class="stage"><p class="cap">الاتجاه ج · مروحة: بطاقات المعاينة تنفرد لكل منصة وتسحب للجدولة. الرئيسية والكتابة بالذكاء</p>
+<div class="phone"><div class="bg"></div>
+<div class="sb"><span class="num">5:51</span><span><svg class="i"><use href="#i-wifioff"/></svg></span></div>
+<div class="head"><h1>ماذا ننشر الآن؟</h1><span class="chip w"><svg class="i" style="width:16px;height:16px"><use href="#i-clock"/></svg>7 مجدولة</span></div>
+<div class="fan">
+<div class="pv"><div class="who"><b>FB</b>فيسبوك</div><p>إعلان جديد في الذكاء الاصطناعي اليوم، إليك أهم ثلاث نقاط…</p><div class="m"><span>معاينة</span><span class="num">9:00م</span></div></div>
+<div class="pv"><div class="who"><b>X</b>X</div><p>إعلان جديد في الذكاء الاصطناعي اليوم. أهم 3 نقاط</p><div class="m"><span>142/280</span><span class="num">9:00م</span></div></div>
+<div class="pv front"><div class="who"><b>IG</b>انستغرام</div><p>إعلان جديد في عالم الذكاء الاصطناعي اليوم، وهذه أهم ثلاث نقاط تهمك كمطور…</p><div class="m"><span>#ذكاء_اصطناعي #تقنية</span><span>اسحب للجدولة</span></div></div>
+</div>
+<div class="sw"><svg class="i"><use href="#i-up"/></svg>اسحب للأعلى للجدولة على 4 منصات</div>
+<div class="dock"><span class="av on">IG</span><span class="av on">X</span><span class="av on">FB</span><span class="av">YT</span><span class="av on">TG</span></div>
+<div class="sheet"><h2>القادم</h2>
+<div class="q"><span class="t">9:00م</span><div>أخبار تقنية<small>بانتظار موافقتك</small></div><span class="dotc" style="background:var(--primary)"></span></div>
+<div class="q"><span class="t">10:30م</span><div>فيديو استوديو لقطة<small>الملف على الجهاز · أوفلاين</small></div><span class="dotc" style="background:var(--accent)"></span></div>
+<div class="q"><span class="t">8:15م</span><div>تحديث GitHub<small>X · نُشر</small></div><span class="dotc" style="background:var(--ok)"></span></div></div>
+<nav class="nav"><button class="on"><svg class="i"><use href="#i-send"/></svg>نشر</button><button><svg class="i"><use href="#i-cal"/></svg>التقويم</button><button><svg class="i"><use href="#i-list"/></svg>الطابور</button><button><svg class="i"><use href="#i-gear"/></svg>المزيد</button></nav></div><div class="phone"><div class="bg"></div>
+<div class="sb"><span class="num">5:51</span><span></span></div>
+<div class="head"><button aria-label="إغلاق"><svg class="i"><use href="#i-chev"/></svg></button><h1>كتابة بالذكاء</h1><span class="chip">Gemini</span></div>
+<div class="opts"><span class="opt on">أخبار تقنية الآن</span><span class="opt">من موضوع</span><span class="opt">قاعدة يومية</span></div>
+<div class="gen"><span class="sp"><svg class="i"><use href="#i-spark"/></svg></span><div>أبحث عن آخر الأخبار التقنية وأكتب منشوراً عربياً مناسباً لكل منصة…<div class="sk" style="width:92%"></div><div class="sk" style="width:76%"></div><div class="sk" style="width:58%"></div></div></div>
+<div class="opts"><span class="opt">أقصر</span><span class="opt">أكثر رسمية</span><span class="opt">أضف هاشتاقات</span><span class="opt">أعد التوليد</span></div>
+<div class="fan" style="height:250px"><div class="pv" style="height:200px;transform:none;z-index:3;animation:none"><div class="who"><b>IG</b>انستغرام</div><p>إعلان جديد في عالم الذكاء الاصطناعي اليوم، وهذه أهم ثلاث نقاط تهمك كمطور…</p><div class="m"><span>المصدر: الخبر الأصلي مرفق</span><span class="num">9:00م</span></div></div></div>
+<div class="dock" style="padding-top:0"><span class="av on">IG</span><span class="av on">X</span><span class="av on">FB</span><span class="av">YT</span><span class="av on">TG</span></div>
+<button class="release"><svg class="i"><use href="#i-up"/></svg>اسحب أو اضغط للجدولة · 9:00 م</button></div>
+</div>
+</body></html>

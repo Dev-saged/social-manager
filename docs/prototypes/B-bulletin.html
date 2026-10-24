@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none';style-src 'unsafe-inline' https://fonts.googleapis.com;font-src https://fonts.gstatic.com;script-src 'unsafe-inline';img-src data:">
+<title>مدير حساباتي · B-bulletin.html</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{color-scheme:light dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);min-height:100dvh;padding:24px 12px 48px;-webkit-font-smoothing:antialiased}
+.stage{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;align-items:flex-start}
+.cap{width:100%;text-align:center;color:var(--mute);font:500 13px/1.4 var(--f-body);margin-bottom:-8px}
+.phone{position:relative;width:min(390px,100%);min-height:800px;border-radius:38px;overflow:hidden;background:var(--surface-0);border:1px solid var(--line);box-shadow:0 30px 80px -30px oklch(0 0 0/.6);isolation:isolate}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 0;font:600 13px var(--f-num);color:var(--ink)}
+svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;min-height:44px;min-width:44px}
+button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.phone{border:2px solid var(--line);border-radius:30px;background:var(--surface-0)}
+.mast{padding:14px 20px 12px;border-bottom:2px solid var(--line)}
+.mast small{font:500 12px var(--f-num);color:var(--mute);display:flex;justify-content:space-between}
+.mast h1{font:700 clamp(34px,10vw,42px)/1.25 var(--f-display);margin-top:12px}
+.mast h1 mark{background:var(--accent);color:var(--ink);padding:0 6px;border-radius:2px}
+.ticker{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:2px solid var(--line)}
+.ticker div{padding:12px 6px;text-align:center;border-inline-start:1px solid var(--line)}
+.ticker div:first-child{border:0}
+.ticker b{display:block;font:600 24px var(--f-num)}
+.ticker span{font-size:11px;color:var(--mute)}
+.sec{display:flex;justify-content:space-between;align-items:center;padding:16px 20px 8px}
+.sec h2{font:700 20px var(--f-display)}
+.sec span{font-size:12px;color:var(--primary)}
+.wire{display:grid;grid-template-columns:62px 1fr auto;gap:12px;align-items:center;padding:14px 20px;border-top:1px solid var(--line);animation:in .5s cubic-bezier(.2,.8,.2,1) both}
+.wire:nth-of-type(2){animation-delay:.07s}.wire:nth-of-type(3){animation-delay:.14s}
+@keyframes in{from{opacity:0;transform:translateX(-14px)}}
+.wire time{font:600 17px/1.1 var(--f-num);border-inline-end:3px solid var(--primary);padding-inline-end:10px}
+.wire time small{display:block;font:500 10px var(--f-body);color:var(--mute);margin-top:4px}
+.wire p{font-size:14px;line-height:1.55;font-weight:500}
+.wire p small{display:block;color:var(--mute);font-weight:400;font-size:12px;margin-top:2px}
+.stamp{font:700 11px var(--f-body);padding:5px 9px;border:2px solid currentColor;border-radius:4px;transform:rotate(-4deg)}
+.stamp.o{color:var(--ok)}.stamp.w{color:var(--primary)}.stamp.r{color:var(--danger)}
+.tabs{position:absolute;inset:auto 0 0;height:74px;background:var(--ink);color:var(--surface-0);display:grid;grid-template-columns:repeat(5,1fr);align-items:center}
+.tabs button{display:grid;place-items:center;font-size:10.5px;gap:2px;opacity:.7}
+.tabs .on{opacity:1;color:var(--accent)}
+.tabs .go{background:var(--accent);color:var(--ink);opacity:1;height:74px;border-radius:0;font-weight:700}
+.draft{margin:14px 20px 0;padding:16px;background:var(--surface-1);border:2px solid var(--line);border-radius:6px;box-shadow:5px 5px 0 var(--line)}
+.draft .lbl{font:600 11px var(--f-num);color:var(--mute);display:flex;justify-content:space-between;margin-bottom:8px}
+.draft .ta{min-height:112px;width:100%;font:500 16px/1.8 var(--f-body)}
+.stamps{display:flex;flex-wrap:wrap;gap:8px;padding:0 20px}
+.tg{height:44px;padding:0 14px;border:2px solid var(--line);border-radius:6px;font:600 13px var(--f-body);display:flex;align-items:center;gap:8px;background:var(--surface-1)}
+.tg.on{background:var(--ink);color:var(--surface-0);transform:rotate(-1.2deg)}
+.tg em{font:600 10px var(--f-num);font-style:normal;opacity:.7}
+.bar2{display:flex;gap:8px;padding:12px 20px 0}
+.bar2 button{flex:1;border:2px solid var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;background:var(--surface-1)}
+.bar2 .ai{background:var(--accent);color:oklch(0.2 0.03 250);flex:1.7;white-space:nowrap}
+.slot{margin:14px 20px 0;display:flex;align-items:center;gap:12px;border-top:2px solid var(--line);border-bottom:2px solid var(--line);padding:12px 0}
+.slot b{font:600 21px var(--f-body)}
+.slot small{color:var(--mute);font-size:12px}
+.note{padding:10px 20px;font-size:12.5px;color:var(--mute);display:flex;gap:8px;align-items:center}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M8 3v4M16 3v4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-wifioff" viewBox="0 0 24 24"><path d="M3 3l18 18M5 12.5a10 10 0 015-2.6M9 16.2a5 5 0 016 0M12 20h.01M16.5 11a10 10 0 012.5 1.5M2 8.8a15 15 0 015-3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-news" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></symbol>
+</defs></svg>
+<script>
+const CONFIG={"brand": {"name": "مدير حساباتي", "direction": "نشرة"}, "palette": {"bg": ["oklch(0.9 0.012 235)", "oklch(0.14 0.01 250)"], "surface-0": ["oklch(0.975 0.008 235)", "oklch(0.19 0.012 250)"], "surface-1": ["oklch(1 0 0)", "oklch(0.24 0.014 250)"], "ink": ["oklch(0.2 0.03 250)", "oklch(0.96 0.008 235)"], "mute": ["oklch(0.48 0.025 250)", "oklch(0.74 0.02 245)"], "line": ["oklch(0.2 0.03 250)", "oklch(0.96 0.008 235)"], "primary": ["oklch(0.5 0.2 248)", "oklch(0.76 0.14 245)"], "accent": ["oklch(0.92 0.17 98)", "oklch(0.86 0.16 98)"], "ok": ["oklch(0.45 0.13 155)", "oklch(0.78 0.15 155)"], "danger": ["oklch(0.52 0.21 28)", "oklch(0.72 0.18 28)"]}, "fonts": {"body": "'IBM Plex Sans Arabic',sans-serif", "num": "'IBM Plex Mono',monospace", "display": "'El Messiri',serif"}};
+(function(){const r=document.documentElement.style;
+for(const[k,v]of Object.entries(CONFIG.palette))r.setProperty('--'+k,'light-dark('+v[0]+','+v[1]+')');
+r.setProperty('--f-body',CONFIG.fonts.body);r.setProperty('--f-num',CONFIG.fonts.num);r.setProperty('--f-display',CONFIG.fonts.display);
+})();
+</script>
+<div class="stage"><p class="cap">الاتجاه ب · نشرة: غرفة أخبار ورقية بخطوط عريضة وأختام حالة. الرئيسية والتأليف</p>
+<div class="phone">
+<div class="sb"><span class="num">5:51</span><span><svg class="i"><use href="#i-wifioff"/></svg></span></div>
+<div class="mast"><small><span>العدد 246</span><span>السبت · 24 أكتوبر</span></small><h1>اليوم <mark>3</mark> خرجت</h1></div>
+<div class="ticker"><div><b>7</b><span>مجدولة</span></div><div><b>3</b><span>نُشرت</span></div><div><b>1</b><span>تنتظر الشبكة</span></div><div><b>0</b><span>فشلت</span></div></div>
+<div class="sec"><h2>برقيات القادم</h2><span>عرض الكل</span></div>
+<div class="wire"><time>9:00<small>مساءً</small></time><p>أخبار تقنية: أحدث إعلانات الذكاء الاصطناعي<small>IG · X · FB · بانتظار موافقتك</small></p><span class="stamp w">مسودة</span></div>
+<div class="wire"><time>10:30<small>مساءً</small></time><p>فيديو استوديو لقطة<small>IG ريلز · YT · الملف على الجهاز</small></p><span class="stamp w">أوفلاين</span></div>
+<div class="wire"><time>8:15<small>مساءً</small></time><p>تحديث المشروع على GitHub<small>X</small></p><span class="stamp o">نُشر</span></div>
+<div class="wire"><time>7:40<small>مساءً</small></time><p>اقتباس اليوم<small>FB · فشل: انتهت الجلسة</small></p><span class="stamp r">أعد</span></div>
+<nav class="tabs"><button class="on"><svg class="i"><use href="#i-home"/></svg>اليوم</button><button><svg class="i"><use href="#i-cal"/></svg>التقويم</button><button class="go"><svg class="i"><use href="#i-plus"/></svg>اكتب</button><button><svg class="i"><use href="#i-list"/></svg>الطابور</button><button><svg class="i"><use href="#i-gear"/></svg>المزيد</button></nav></div><div class="phone">
+<div class="sb"><span class="num">5:51</span><span></span></div>
+<div class="mast"><small><span>مسودة · تُحفظ تلقائياً</span><span class="num">142/280</span></small><h1>اكتب <mark>خبراً</mark></h1></div>
+<div class="draft"><div class="lbl"><span>النص</span><span>X ≤ 280</span></div><div class="ta">إعلان جديد في عالم الذكاء الاصطناعي اليوم، وهذه أهم ثلاث نقاط تهمك كمطور…</div></div>
+<div class="bar2"><button class="ai"><svg class="i"><use href="#i-spark"/></svg>اكتب بالذكاء</button><button><svg class="i"><use href="#i-news"/></svg>أخبار الآن</button><button><svg class="i"><use href="#i-video"/></svg></button><button><svg class="i"><use href="#i-image"/></svg></button></div>
+<div class="sec"><h2>أين ننشر؟</h2></div>
+<div class="stamps"><span class="tg on"><svg class="i"><use href="#i-check"/></svg>انستغرام</span><span class="tg on"><svg class="i"><use href="#i-check"/></svg>X</span><span class="tg on"><svg class="i"><use href="#i-check"/></svg>فيسبوك</span><span class="tg">يوتيوب <em>فيديو فقط</em></span><span class="tg on"><svg class="i"><use href="#i-check"/></svg>تلغرام</span></div>
+<div class="slot"><svg class="i"><use href="#i-clock"/></svg><div><small>الموعد</small><br><b>الليلة · <span class="num">9:00</span> م</b></div><span class="stamp o" style="margin-inline-start:auto">أفضل وقت</span></div>
+<div class="note"><svg class="i"><use href="#i-wifioff"/></svg>أوفلاين الآن. يُحفظ هنا وينشر عند عودة الإنترنت.</div>
+<nav class="tabs" style="grid-template-columns:1fr"><button class="go" style="height:74px;font-size:16px;grid-auto-flow:column;gap:10px"><svg class="i"><use href="#i-clock"/></svg>جدولة على 4 منصات</button></nav></div>
+</div>
+</body></html>

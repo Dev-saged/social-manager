@@ -1,6 +1,6 @@
 # session-handoff
 
-## State (v1.3.0, branch feature/v1.3-roadmap merged to main)
+## State (v1.3.0 on branch feature/v1.3-roadmap, PR #2 awaiting merge into main)
 - Roadmap phases 0-7 done: classified errors + reasons in UI, unified adapter interface, per-platform workers, token refresh, Instagram official (+relay) with personal/session fallback and in-app code entry, Facebook personal manual share, Oxion->Gemini chain with live model picks, Gemini image/video, Thaura removed, health page (heartbeat, catch-up, delays, accounts, libs reinstall), full encrypted backup, local fonts, old-WebView color fallback, upcoming list and C-fan motion.
 - 75 unit tests pass; /#test passes in headless Chromium (dark, light, legacy CSS emulation).
 

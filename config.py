@@ -11,6 +11,9 @@ THAURA_API_KEY = os.getenv("THAURA_API_KEY", "")
 THAURA_BASE_URL = "https://backend.thaura.ai/v1"
 THAURA_MODEL = "thaura"
 
+# ---- Gemini (اختياري): المفتاح يُحفظ مشفراً من الإعدادات، أو من البيئة ----
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
 # ---- مجلد البيانات (قاعدة البيانات + مفتاح التشفير) ----
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".social_manager")
 os.makedirs(DATA_DIR, mode=0o700, exist_ok=True)

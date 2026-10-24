@@ -354,6 +354,9 @@ def get_settings():
     return jsonify({
         "persona": db.get_setting("persona", config.DEFAULT_PERSONA),
         "has_api_key": bool(db.get_setting("thaura_api_key", "") or config.THAURA_API_KEY),
+        "has_gemini_key": bool(db.get_gemini_key(config.GEMINI_API_KEY)),
+        "gemini_model": db.get_setting("gemini_model", ""),
+        "missed_grace_hours": db.get_setting("missed_grace_hours", "12"),
     })
 
 
@@ -362,6 +365,15 @@ def save_settings():
     data = request.get_json(force=True)
     if "persona" in data:
         db.set_setting("persona", data["persona"])
+    if data.get("gemini_api_key"):
+        db.set_gemini_key(data["gemini_api_key"].strip())
+    if "gemini_model" in data:
+        db.set_setting("gemini_model", str(data["gemini_model"]).strip())
+    if "missed_grace_hours" in data:
+        try:
+            db.set_setting("missed_grace_hours", str(max(1, min(168, float(data["missed_grace_hours"])))))
+        except (TypeError, ValueError):
+            return jsonify({"error": "المهلة رقم بالساعات"}), 400
     if data.get("api_key"):
         db.set_api_key(data["api_key"])
         import core.ai_engine as ai

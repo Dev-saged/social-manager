@@ -92,6 +92,20 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_post_targets_due ON post_targets(status, due_at);
         CREATE INDEX IF NOT EXISTS idx_post_targets_group ON post_targets(group_id);
+        CREATE TABLE IF NOT EXISTS auto_rules(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT DEFAULT '',
+            kind TEXT NOT NULL,                -- news / topic
+            topic TEXT DEFAULT '',
+            account_ids TEXT DEFAULT '[]',
+            times TEXT DEFAULT '[]',           -- ["21:00"]
+            tone TEXT DEFAULT '',
+            require_approval INTEGER DEFAULT 1,
+            active INTEGER DEFAULT 1,
+            last_slot TEXT DEFAULT '',
+            recent_titles TEXT DEFAULT '[]',
+            created_at REAL
+        );
         """)
     try:
         import os
@@ -536,3 +550,73 @@ def target_counts():
             "WHERE g.status!='cancelled' GROUP BY t.status"
         ).fetchall()
         return {r["status"]: r["n"] for r in rows}
+
+
+# ---------- Gemini والقواعد المتكررة ----------
+def set_gemini_key(value):
+    from core import accounts as acc_store
+    set_setting("gemini_api_key", acc_store.encrypt({"value": value}))
+
+
+def get_gemini_key(default=""):
+    from core import accounts as acc_store
+    stored = get_setting("gemini_api_key", "")
+    if not stored:
+        return default
+    try:
+        return acc_store.decrypt(stored).get("value", default)
+    except Exception:
+        return default
+
+
+def add_rule(name, kind, topic, account_ids, times, tone, require_approval):
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT INTO auto_rules(name, kind, topic, account_ids, times, tone, require_approval, created_at) VALUES(?,?,?,?,?,?,?,?)",
+            (name, kind, topic, json.dumps(account_ids), json.dumps(times), tone, 1 if require_approval else 0, time.time()),
+        )
+        return cur.lastrowid
+
+
+def list_rules():
+    with _conn() as c:
+        return c.execute("SELECT * FROM auto_rules ORDER BY id").fetchall()
+
+
+def get_rule(rule_id):
+    with _conn() as c:
+        return c.execute("SELECT * FROM auto_rules WHERE id=?", (rule_id,)).fetchone()
+
+
+def update_rule(rule_id, **fields):
+    allowed = {"name", "topic", "tone", "require_approval", "active", "account_ids", "times"}
+    sets, args = [], []
+    for k, v in fields.items():
+        if k not in allowed:
+            continue
+        if k in ("account_ids", "times"):
+            v = json.dumps(v)
+        elif k in ("require_approval", "active"):
+            v = 1 if v else 0
+        sets.append(f"{k}=?")
+        args.append(v)
+    if not sets:
+        return False
+    with _conn() as c:
+        cur = c.execute(f"UPDATE auto_rules SET {', '.join(sets)} WHERE id=?", (*args, rule_id))
+        return cur.rowcount == 1
+
+
+def delete_rule(rule_id):
+    with _conn() as c:
+        c.execute("DELETE FROM auto_rules WHERE id=?", (rule_id,))
+
+
+def mark_rule_run(rule_id, slot, title):
+    with _conn() as c:
+        row = c.execute("SELECT recent_titles FROM auto_rules WHERE id=?", (rule_id,)).fetchone()
+        titles = json.loads(row["recent_titles"]) if row else []
+        if title:
+            titles = (titles + [title])[-30:]
+        c.execute("UPDATE auto_rules SET last_slot=?, recent_titles=? WHERE id=?",
+                  (slot, json.dumps(titles, ensure_ascii=False), rule_id))

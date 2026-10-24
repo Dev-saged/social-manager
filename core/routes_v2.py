@@ -193,3 +193,90 @@ def retry_target(target_id):
     if not db.retry_target(target_id):
         return jsonify({"error": "لا يمكن إعادة محاولة هذا الهدف"}), 409
     return jsonify({"ok": True})
+
+
+# ---------- الذكاء (Gemini) ----------
+@bp.post("/api/ai/generate")
+def ai_generate():
+    from core import gemini
+    data = request.get_json(force=True)
+    mode = data.get("mode", "topic")
+    tone = (data.get("tone") or "راقي وجذاب").strip()
+    try:
+        if mode == "news":
+            titles = [g["meta"].get("title", "") for g in (group_view(x) for x in db.list_groups(time.time() - 3 * 86400, None)) if g["source"] == "ai_news"]
+            return jsonify(gemini.tech_news([t for t in titles if t][-15:], tone))
+        topic = (data.get("topic") or "").strip()
+        if not topic:
+            return jsonify({"error": "اكتب موضوع المنشور"}), 400
+        return jsonify(gemini.write_post(topic, tone))
+    except gemini.GeminiError as e:
+        return jsonify({"error": str(e)}), 502
+
+
+def _rule_view(r):
+    return {"id": r["id"], "name": r["name"], "kind": r["kind"], "topic": r["topic"],
+            "account_ids": json.loads(r["account_ids"] or "[]"), "times": json.loads(r["times"] or "[]"),
+            "tone": r["tone"], "require_approval": bool(r["require_approval"]), "active": bool(r["active"]),
+            "last_slot": r["last_slot"]}
+
+
+def _rule_fields(data):
+    kind = data.get("kind")
+    if kind not in ("news", "topic"):
+        return None, "نوع القاعدة: news أو topic"
+    times = [t for t in (data.get("times") or []) if isinstance(t, str) and len(t) == 5 and t[2] == ":" and t[:2].isdigit() and t[3:].isdigit() and int(t[:2]) < 24 and int(t[3:]) < 60]
+    if not times:
+        return None, "حدّد وقتاً واحداً على الأقل بصيغة HH:MM"
+    ids = [int(a) for a in (data.get("account_ids") or []) if str(a).isdigit()]
+    if not ids:
+        return None, "اختر حساباً واحداً على الأقل"
+    if kind == "topic" and not (data.get("topic") or "").strip():
+        return None, "اكتب موضوع القاعدة"
+    return {"kind": kind, "times": times, "account_ids": ids}, ""
+
+
+@bp.get("/api/rules")
+def list_rules():
+    return jsonify([_rule_view(r) for r in db.list_rules()])
+
+
+@bp.post("/api/rules")
+def add_rule():
+    data = request.get_json(force=True)
+    f, err = _rule_fields(data)
+    if err:
+        return jsonify({"error": err}), 400
+    rid = db.add_rule((data.get("name") or "").strip(), f["kind"], (data.get("topic") or "").strip(),
+                      f["account_ids"], f["times"], (data.get("tone") or "").strip(),
+                      data.get("require_approval", True))
+    return jsonify({"ok": True, "id": rid})
+
+
+@bp.patch("/api/rules/<int:rule_id>")
+def patch_rule(rule_id):
+    data = request.get_json(force=True)
+    allowed = {k: data[k] for k in ("name", "topic", "tone", "require_approval", "active", "account_ids", "times") if k in data}
+    if not db.update_rule(rule_id, **allowed):
+        return jsonify({"error": "القاعدة غير موجودة"}), 404
+    return jsonify({"ok": True})
+
+
+@bp.delete("/api/rules/<int:rule_id>")
+def delete_rule(rule_id):
+    db.delete_rule(rule_id)
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/rules/<int:rule_id>/run")
+def run_rule(rule_id):
+    from core import auto_rules, gemini
+    rule = db.get_rule(rule_id)
+    if not rule:
+        return jsonify({"error": "القاعدة غير موجودة"}), 404
+    try:
+        gid, title = auto_rules.generate_group(rule, time.time() + 60)
+    except gemini.GeminiError as e:
+        return jsonify({"error": str(e)}), 502
+    db.mark_rule_run(rule_id, rule["last_slot"], title)
+    return jsonify({"ok": True, "group_id": gid})

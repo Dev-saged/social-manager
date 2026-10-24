@@ -8,6 +8,7 @@ import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 from core import database as db
 from core import publisher
+from core import auto_rules
 from core import media
 from platforms import get as get_adapter
 from platforms.base import RateLimitExceeded
@@ -42,6 +43,10 @@ def tick():
         publisher.run_due()
     except Exception as e:
         db.log("system", "groups_tick", str(e), ok=0)
+    try:
+        auto_rules.run_due()
+    except Exception as e:
+        db.log("system", "rules_tick", str(e), ok=0)
     try:
         _release_approved_comments()
     except Exception as e:

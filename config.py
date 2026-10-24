@@ -4,10 +4,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+APP_VERSION = "1.1.0"
+
 # ---- Thaura API (توليد التعليقات والمحتوى) ----
 THAURA_API_KEY = os.getenv("THAURA_API_KEY", "")
 THAURA_BASE_URL = "https://backend.thaura.ai/v1"
 THAURA_MODEL = "thaura"
+
+# ---- Gemini (اختياري): المفتاح يُحفظ مشفراً من الإعدادات، أو من البيئة ----
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+REPLY_POLL_SECONDS = 120
+REPLY_DELAY_RANGE = (20, 120)  # تأخير عشوائي قبل الرد حتى لا يبدو آلياً
 
 # ---- مجلد البيانات (قاعدة البيانات + مفتاح التشفير) ----
 DATA_DIR = os.path.join(os.path.expanduser("~"), ".social_manager")
@@ -21,7 +29,7 @@ SECRET_KEY_PATH = os.path.join(DATA_DIR, "secret.key")
 
 # ---- حدود آمنة لكل منصة (حتى لا تبدو الأنشطة آلية) ----
 RATE_LIMITS = {
-    "instagram": {"comments_per_hour": 8, "likes_per_hour": 20, "min_delay_sec": 180, "max_delay_sec": 3600},
+    "instagram": {"comments_per_hour": 8, "likes_per_hour": 20, "replies_per_hour": 20, "dms_per_hour": 12, "min_delay_sec": 180, "max_delay_sec": 3600},
     "facebook":  {"comments_per_hour": 8, "likes_per_hour": 20, "min_delay_sec": 180, "max_delay_sec": 3600},
     "x":         {"comments_per_hour": 6, "likes_per_hour": 15, "min_delay_sec": 240, "max_delay_sec": 5400},
     "youtube":   {"comments_per_hour": 5, "likes_per_hour": 10, "min_delay_sec": 300, "max_delay_sec": 7200},

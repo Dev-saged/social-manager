@@ -3,9 +3,14 @@
 كل دقيقة يفحص: منشورات وصل وقت نشرها، وتعليقات موافق عليها انتهى تأخيرها الواقعي.
 التأخير العشوائي (config.RATE_LIMITS) يجعل الإيقاع بشرياً وليس آلياً ثابتاً.
 """
+import os
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 from core import database as db
+from core import publisher
+from core import auto_reply
+from core import auto_rules
+from core import media
 from platforms import get as get_adapter
 from platforms.base import RateLimitExceeded
 
@@ -18,7 +23,7 @@ def start():
         return _sched
     db.init_db()
     _sched = BackgroundScheduler(daemon=True)
-    _sched.add_job(tick, "interval", seconds=60, id="tick", max_instances=1, coalesce=True)
+    _sched.add_job(tick, "interval", seconds=30, id="tick", max_instances=1, coalesce=True)
     _sched.start()
     return _sched
 
@@ -36,6 +41,18 @@ def tick():
     except Exception as e:
         db.log("system", "publish_tick", str(e), ok=0)
     try:
+        publisher.run_due()
+    except Exception as e:
+        db.log("system", "groups_tick", str(e), ok=0)
+    try:
+        auto_rules.run_due()
+    except Exception as e:
+        db.log("system", "rules_tick", str(e), ok=0)
+    try:
+        auto_reply.run()
+    except Exception as e:
+        db.log("system", "reply_tick", str(e), ok=0)
+    try:
         _release_approved_comments()
     except Exception as e:
         db.log("system", "comment_tick", str(e), ok=0)
@@ -48,6 +65,14 @@ def _adapter_for(account_id):
     return get_adapter(acc["platform"], acc), acc
 
 
+def _drop_local_media(media_path):
+    """ينظف ملف الوسائط المحلي بعد نشره (الروابط العامة تُتجاهل)."""
+    if media_path and not str(media_path).startswith("http"):
+        name = os.path.basename(str(media_path))
+        if media.valid_id(name) and os.path.dirname(str(media_path)) == media.media_dir():
+            media.delete(name)
+
+
 def _publish_due():
     for post in db.due_posts():
         acc = db.get_account(post["account_id"])
@@ -58,6 +83,7 @@ def _publish_due():
                 continue
             adapter.publish(post["content"], post["media_path"])
             db.mark_post_status(post["id"], "published")
+            _drop_local_media(post["media_path"])
             db.log(acc["platform"], "publish", f"post #{post['id']}")
         except Exception as e:
             db.mark_post_status(post["id"], "failed", str(e))

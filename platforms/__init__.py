@@ -11,11 +11,17 @@ def _load():
     from platforms.facebook import FacebookPlatform
     from platforms.x_twitter import XPlatform
     from platforms.youtube import YouTubePlatform
+    from platforms.telegram import TelegramPlatform
+    from platforms.bluesky import BlueskyPlatform
+    from platforms.threads import ThreadsPlatform
     ADAPTERS = {
         "instagram": InstagramPlatform,
         "facebook": FacebookPlatform,
         "x": XPlatform,
         "youtube": YouTubePlatform,
+        "telegram": TelegramPlatform,
+        "bluesky": BlueskyPlatform,
+        "threads": ThreadsPlatform,
     }
 
 
@@ -27,4 +33,10 @@ def get(platform, account_row):
 
 
 def platform_names():
-    return ["instagram", "facebook", "x", "youtube"]
+    return ["instagram", "facebook", "x", "youtube", "telegram", "bluesky", "threads"]
+
+
+def capabilities():
+    """إمكانيات كل منصة (نص/صورة/فيديو/أقصى طول) دون الحاجة لبيانات دخول."""
+    _load()
+    return {name: dict(cls.capabilities) for name, cls in ADAPTERS.items()}

@@ -10,6 +10,7 @@ from platforms.base import BasePlatform, RateLimitExceeded
 class XPlatform(BasePlatform):
     name = "x"
     required_fields = ["api_key", "api_secret", "access_token", "access_token_secret"]
+    capabilities = {"text": True, "image": True, "video": True, "max_len": 280}
 
     def __init__(self, account_row):
         super().__init__(account_row)
@@ -34,6 +35,12 @@ class XPlatform(BasePlatform):
             self.client.create_tweet(text=text, media_ids=[media.media_id_string])
         else:
             self.client.create_tweet(text=text)
+
+    def publish_video(self, text, media_path):
+        media = self.media_api.media_upload(
+            filename=media_path, chunked=True, media_category="tweet_video", wait_for_async_finalize=True)
+        resp = self.client.create_tweet(text=text, media_ids=[media.media_id_string])
+        return str((resp.data or {}).get("id", ""))
 
     def comment(self, post_id, text):
         """التعليق على X هو رد على تغريدة."""

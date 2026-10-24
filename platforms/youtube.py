@@ -13,6 +13,7 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 class YouTubePlatform(BasePlatform):
     name = "youtube"
     required_fields = []  # يعتمد على client_secrets.json في مجلد البيانات
+    capabilities = {"text": False, "image": False, "video": True, "max_len": 5000}
 
     def __init__(self, account_row):
         super().__init__(account_row)
@@ -52,6 +53,9 @@ class YouTubePlatform(BasePlatform):
                 "status": {"privacyStatus": "public"}}
         media = MediaFileUpload(media_path, chunksize=10 * 1024 * 1024, resumable=True)
         self._api().videos().insert(part="snippet,status", body=body, media_body=media).execute()
+
+    def publish_video(self, text, media_path):
+        return self.publish(text, media_path)
 
     def comment(self, video_id, text):
         if not self.comment_limiter.allow():

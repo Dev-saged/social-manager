@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none';style-src 'unsafe-inline' https://fonts.googleapis.com;font-src https://fonts.gstatic.com;script-src 'unsafe-inline';img-src data:">
+<title>مدير حساباتي · A-orbit.html</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;600;700&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);min-height:100dvh;padding:24px 12px 48px;-webkit-font-smoothing:antialiased}
+.stage{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;align-items:flex-start}
+.cap{width:100%;text-align:center;color:var(--mute);font:500 13px/1.4 var(--f-body);margin-bottom:-8px}
+.phone{position:relative;width:min(390px,100%);min-height:800px;border-radius:38px;overflow:hidden;background:var(--surface-0);border:1px solid var(--line);box-shadow:0 30px 80px -30px oklch(0 0 0/.6);isolation:isolate}
+.sb{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 0;font:600 13px var(--f-num);color:var(--ink)}
+svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;min-height:44px;min-width:44px}
+button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.phone{background:radial-gradient(120% 60% at 50% -10%,oklch(0.3 0.08 200/.55),transparent 60%),var(--surface-0)}
+.glow{position:absolute;inset:auto -20% -10% -20%;height:260px;background:radial-gradient(closest-side,oklch(0.75 0.15 190/.25),transparent);animation:drift 9s ease-in-out infinite alternate;z-index:-1}
+@keyframes drift{to{transform:translateX(18%) scale(1.15)}}
+.pad{padding:0 20px}
+.hello{padding:18px 20px 0}
+.hello small{color:var(--mute);font-size:13px}
+.hello h1{font:600 clamp(22px,6vw,26px)/1.3 var(--f-display);margin-top:2px}
+.dial{position:relative;margin:14px auto 0;width:268px;height:268px;display:grid;place-items:center}
+.dial svg{position:absolute;inset:0;width:100%;height:100%}
+.dial .core{text-align:center}
+.dial .core small{color:var(--mute);font-size:12px;display:block}
+.dial .core b{font:600 34px/1.1 var(--f-num);color:var(--primary);display:block;margin:2px 0}
+.dial .core span{font-size:13px}
+.sweep{transform-origin:134px 134px;animation:spin 24s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.kpis{display:flex;gap:10px;padding:6px 20px 0;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.kpi{scroll-snap-align:start;flex:0 0 112px;background:var(--surface-1);border:1px solid var(--line);border-radius:18px;padding:12px;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.kpi:active{transform:scale(.96)}
+.kpi b{display:block;font:600 26px/1 var(--f-num)}
+.kpi span{font-size:12px;color:var(--mute)}
+.kpi i{display:block;height:3px;border-radius:3px;margin-top:10px;background:linear-gradient(90deg,var(--c),transparent)}
+h2{font:600 15px var(--f-body);padding:20px 20px 8px}
+.row{display:flex;align-items:center;gap:12px;margin:0 20px 8px;padding:12px;border-radius:16px;background:var(--surface-1);border:1px solid var(--line);animation:in .6s cubic-bezier(.2,.8,.2,1) both}
+.row:nth-child(3){animation-delay:.08s}.row:nth-child(4){animation-delay:.16s}
+@keyframes in{from{opacity:0;transform:translateY(14px)}}
+.t{font:600 15px var(--f-num);min-width:52px;color:var(--primary)}
+.row p{flex:1;font-size:13.5px;line-height:1.5}
+.row p small{display:block;color:var(--mute);font-size:12px}
+.dots{display:flex}.dots em{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 9px var(--f-num);font-style:normal;background:var(--surface-0);border:1px solid var(--line);margin-inline-start:-6px;color:var(--mute)}
+.pill{font-size:11px;padding:4px 9px;border-radius:99px;border:1px solid currentColor}
+.pill.w{color:var(--accent)}.pill.o{color:var(--ok)}.pill.r{color:var(--danger)}
+.nav{position:absolute;inset:auto 16px 16px;height:68px;border-radius:26px;background:oklch(0.25 0.04 255/.72);backdrop-filter:blur(18px);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;color:var(--mute)}
+.nav button{display:grid;place-items:center;gap:2px;font-size:10.5px}
+.nav .on{color:var(--primary)}
+.fab{width:60px;height:60px;border-radius:22px;background:var(--primary);color:oklch(0.18 0.03 255)!important;margin-top:-26px;box-shadow:0 10px 30px -6px var(--primary);display:grid;place-items:center}
+/* compose */
+.top{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0}
+.top h1{font:600 18px var(--f-display)}
+.card{margin:14px 20px 0;padding:16px;border-radius:22px;background:var(--surface-1);border:1px solid var(--line)}
+.card textarea,.ta{width:100%;min-height:104px;background:none;border:0;color:var(--ink);font:400 15px/1.7 var(--f-body);resize:none;outline:0}
+.tools{display:flex;gap:8px;margin-top:8px}
+.tool{height:44px;padding:0 14px;border-radius:14px;border:1px solid var(--line);display:flex;align-items:center;gap:6px;font-size:13px}
+.tool.ai{background:linear-gradient(135deg,oklch(0.84 0.14 190/.22),oklch(0.84 0.15 80/.2));border-color:var(--primary);color:var(--primary)}
+.plats{display:flex;gap:12px;padding:6px 20px 0;overflow-x:auto;scrollbar-width:none}
+.pl{position:relative;width:64px;flex:none;text-align:center;font-size:11px;color:var(--mute)}
+.pl .ring{width:60px;height:60px;display:block;margin:0 auto 4px}
+.pl.on{color:var(--ink)}
+.when{margin:14px 20px 0;padding:14px 16px;border-radius:18px;border:1px dashed var(--line);display:flex;align-items:center;gap:12px}
+.when b{font:600 20px var(--f-num);color:var(--accent)}
+.cta{position:absolute;inset:auto 20px 22px;height:56px;border-radius:20px;background:var(--primary);color:oklch(0.18 0.03 255);font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 12px 34px -8px var(--primary)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M8 3v4M16 3v4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-wifioff" viewBox="0 0 24 24"><path d="M3 3l18 18M5 12.5a10 10 0 015-2.6M9 16.2a5 5 0 016 0M12 20h.01M16.5 11a10 10 0 012.5 1.5M2 8.8a15 15 0 015-3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-news" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></symbol>
+</defs></svg>
+<script>
+const CONFIG={"brand": {"name": "مدير حساباتي", "direction": "مدار"}, "palette": {"bg": ["oklch(0.95 0.01 230)", "oklch(0.13 0.02 255)"], "surface-0": ["oklch(0.98 0.005 230)", "oklch(0.17 0.03 255)"], "surface-1": ["oklch(0.95 0.01 230)", "oklch(0.22 0.035 255)"], "ink": ["oklch(0.22 0.03 255)", "oklch(0.95 0.01 230)"], "mute": ["oklch(0.5 0.03 255)", "oklch(0.72 0.03 245)"], "line": ["oklch(0.88 0.015 240)", "oklch(0.3 0.035 255)"], "primary": ["oklch(0.55 0.13 195)", "oklch(0.84 0.14 190)"], "accent": ["oklch(0.62 0.16 70)", "oklch(0.84 0.15 80)"], "ok": ["oklch(0.52 0.15 150)", "oklch(0.8 0.17 150)"], "danger": ["oklch(0.55 0.2 25)", "oklch(0.72 0.18 25)"]}, "fonts": {"body": "'Alexandria',sans-serif", "num": "'Space Grotesk',sans-serif", "display": "'Alexandria',sans-serif"}};
+(function(){const r=document.documentElement.style;
+for(const[k,v]of Object.entries(CONFIG.palette))r.setProperty('--'+k,'light-dark('+v[0]+','+v[1]+')');
+r.setProperty('--f-body',CONFIG.fonts.body);r.setProperty('--f-num',CONFIG.fonts.num);r.setProperty('--f-display',CONFIG.fonts.display);
+})();
+</script>
+<div class="stage"><p class="cap">الاتجاه أ · مدار: لوحة قيادة حيّة تدور حول 24 ساعة. الرئيسية والتأليف</p>
+<div class="phone"><div class="glow"></div>
+<div class="sb"><span class="num">5:51</span><span><svg class="i"><use href="#i-wifioff"/></svg></span></div>
+<div class="hello"><small>السبت 24 أكتوبر</small><h1>3 منشورات خرجت اليوم، والقادم بعد 3 ساعات</h1></div>
+<div class="dial"><svg viewBox="0 0 268 268"><circle cx="134" cy="134" r="112" fill="none" stroke="var(--line)" stroke-width="1"/><line x1="134.0" y1="20.0" x2="134.0" y2="8.0" stroke="var(--line)" stroke-width="2"/><line x1="164.5" y1="20.0" x2="166.1" y2="14.2" stroke="var(--line)" stroke-width="2"/><line x1="193.0" y1="31.8" x2="196.0" y2="26.6" stroke="var(--line)" stroke-width="2"/><line x1="217.4" y1="50.6" x2="221.7" y2="46.3" stroke="var(--line)" stroke-width="2"/><line x1="236.2" y1="75.0" x2="241.4" y2="72.0" stroke="var(--line)" stroke-width="2"/><line x1="248.0" y1="103.5" x2="253.8" y2="101.9" stroke="var(--line)" stroke-width="2"/><line x1="248.0" y1="134.0" x2="260.0" y2="134.0" stroke="var(--line)" stroke-width="2"/><line x1="248.0" y1="164.5" x2="253.8" y2="166.1" stroke="var(--line)" stroke-width="2"/><line x1="236.2" y1="193.0" x2="241.4" y2="196.0" stroke="var(--line)" stroke-width="2"/><line x1="217.4" y1="217.4" x2="221.7" y2="221.7" stroke="var(--line)" stroke-width="2"/><line x1="193.0" y1="236.2" x2="196.0" y2="241.4" stroke="var(--line)" stroke-width="2"/><line x1="164.5" y1="248.0" x2="166.1" y2="253.8" stroke="var(--line)" stroke-width="2"/><line x1="134.0" y1="248.0" x2="134.0" y2="260.0" stroke="var(--line)" stroke-width="2"/><line x1="103.5" y1="248.0" x2="101.9" y2="253.8" stroke="var(--line)" stroke-width="2"/><line x1="75.0" y1="236.2" x2="72.0" y2="241.4" stroke="var(--line)" stroke-width="2"/><line x1="50.6" y1="217.4" x2="46.3" y2="221.7" stroke="var(--line)" stroke-width="2"/><line x1="31.8" y1="193.0" x2="26.6" y2="196.0" stroke="var(--line)" stroke-width="2"/><line x1="20.0" y1="164.5" x2="14.2" y2="166.1" stroke="var(--line)" stroke-width="2"/><line x1="20.0" y1="134.0" x2="8.0" y2="134.0" stroke="var(--line)" stroke-width="2"/><line x1="20.0" y1="103.5" x2="14.2" y2="101.9" stroke="var(--line)" stroke-width="2"/><line x1="31.8" y1="75.0" x2="26.6" y2="72.0" stroke="var(--line)" stroke-width="2"/><line x1="50.6" y1="50.6" x2="46.3" y2="46.3" stroke="var(--line)" stroke-width="2"/><line x1="75.0" y1="31.8" x2="72.0" y2="26.6" stroke="var(--line)" stroke-width="2"/><line x1="103.5" y1="20.0" x2="101.9" y2="14.2" stroke="var(--line)" stroke-width="2"/><circle cx="213.2" cy="213.2" r="7" fill="var(--ok)"/><circle cx="105.0" cy="242.2" r="7" fill="var(--ok)"/><circle cx="22.0" cy="134.0" r="7" fill="var(--accent)"/><circle cx="54.8" cy="54.8" r="7" fill="var(--primary)"/><circle cx="91.1" cy="30.5" r="7" fill="var(--primary)"/>
+<g class="sweep"><path d="M134 134 L134 18" stroke="var(--primary)" stroke-width="1.5" opacity=".6"/></g></svg>
+<div class="core"><small>التالي</small><b>3:04:12</b><span>أخبار تقنية · 3 منصات</span></div></div>
+<div class="kpis"><div class="kpi" style="--c:var(--primary)"><b class="num">7</b><span>مجدولة</span><i></i></div><div class="kpi" style="--c:var(--ok)"><b class="num">3</b><span>نُشرت اليوم</span><i></i></div><div class="kpi" style="--c:var(--accent)"><b class="num">1</b><span>بانتظار الشبكة</span><i></i></div><div class="kpi" style="--c:var(--danger)"><b class="num">0</b><span>فشلت</span><i></i></div></div>
+<h2>القادم</h2>
+<div class="row"><span class="t">9:00م</span><p>أخبار تقنية: أحدث إعلانات الذكاء الاصطناعي<small>تلقائي · بانتظار موافقتك</small></p><span class="dots"><em>IG</em><em>X</em><em>FB</em></span></div>
+<div class="row"><span class="t">10:30م</span><p>فيديو استوديو لقطة<small>الفيديو جاهز على الجهاز</small></p><span class="pill w">أوفلاين</span></div>
+<div class="row"><span class="t">8:15م</span><p>تحديث المشروع على GitHub<small>X</small></p><span class="pill o">نُشر</span></div>
+<nav class="nav"><button class="on"><svg class="i"><use href="#i-home"/></svg>الرئيسية</button><button><svg class="i"><use href="#i-cal"/></svg>التقويم</button><button class="fab" aria-label="منشور جديد"><svg class="i"><use href="#i-plus"/></svg></button><button><svg class="i"><use href="#i-list"/></svg>الطابور</button><button><svg class="i"><use href="#i-gear"/></svg>المزيد</button></nav></div><div class="phone"><div class="glow"></div>
+<div class="sb"><span class="num">5:51</span><span></span></div>
+<div class="top"><button aria-label="رجوع"><svg class="i"><use href="#i-chev"/></svg></button><h1>منشور جديد</h1><span class="pill w">مسودة</span></div>
+<div class="card"><div class="ta">إعلان جديد في عالم الذكاء الاصطناعي اليوم، وهذه أهم ثلاث نقاط تهمك كمطور…</div>
+<div class="tools"><button class="tool ai"><svg class="i"><use href="#i-spark"/></svg>اكتب بالذكاء</button><button class="tool"><svg class="i"><use href="#i-image"/></svg></button><button class="tool"><svg class="i"><use href="#i-video"/></svg></button><span class="num" dir="ltr" style="margin-inline-start:auto;align-self:center;color:var(--mute);font-size:12px">142 / 280</span></div></div>
+<h2>انشر على</h2>
+<div class="plats"><div class="pl on"><svg class="ring" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="var(--surface-1)" stroke="var(--line)" stroke-width="3"/><circle cx="30" cy="30" r="26" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="81.7" transform="rotate(-90 30 30)"/><text x="30" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)" font-family="Space Grotesk">IG</text></svg>انستغرام</div><div class="pl on"><svg class="ring" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="var(--surface-1)" stroke="var(--line)" stroke-width="3"/><circle cx="30" cy="30" r="26" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="80.0" transform="rotate(-90 30 30)"/><text x="30" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)" font-family="Space Grotesk">X</text></svg>X</div><div class="pl on"><svg class="ring" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="var(--surface-1)" stroke="var(--line)" stroke-width="3"/><circle cx="30" cy="30" r="26" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="130.7" transform="rotate(-90 30 30)"/><text x="30" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)" font-family="Space Grotesk">FB</text></svg>فيسبوك</div><div class="pl "><svg class="ring" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="var(--surface-1)" stroke="var(--line)" stroke-width="3"/><circle cx="30" cy="30" r="26" fill="none" stroke="var(--line)" stroke-width="3" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="163.4" transform="rotate(-90 30 30)"/><text x="30" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--mute)" font-family="Space Grotesk">YT</text></svg>يوتيوب</div><div class="pl on"><svg class="ring" viewBox="0 0 60 60"><circle cx="30" cy="30" r="26" fill="var(--surface-1)" stroke="var(--line)" stroke-width="3"/><circle cx="30" cy="30" r="26" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" stroke-dasharray="163.4" stroke-dashoffset="130.7" transform="rotate(-90 30 30)"/><text x="30" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink)" font-family="Space Grotesk">TG</text></svg>تلغرام</div></div>
+<div class="when"><svg class="i"><use href="#i-clock"/></svg><div><small style="color:var(--mute);font-size:12px">وقت النشر</small><br><b>الليلة 9:00م</b></div><span class="pill o" style="margin-inline-start:auto">أفضل وقت</span></div>
+<div class="when" style="border-style:solid"><svg class="i"><use href="#i-wifioff"/></svg><small style="font-size:12.5px;color:var(--mute)">أوفلاين الآن، سينشر تلقائياً عند عودة الإنترنت</small></div>
+<button class="cta"><svg class="i"><use href="#i-clock"/></svg>جدولة على 4 منصات</button></div>
+</div>
+</body></html>

@@ -65,6 +65,74 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_rate_events_account_action_ts
             ON rate_events(account_id, action, ts);
+        CREATE TABLE IF NOT EXISTS post_groups(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            text TEXT NOT NULL DEFAULT '',
+            media_id TEXT DEFAULT '',
+            media_kind TEXT DEFAULT '',        -- image / video / فارغ
+            scheduled_at REAL NOT NULL,
+            status TEXT DEFAULT 'scheduled',   -- draft / scheduled / cancelled
+            source TEXT DEFAULT 'manual',      -- manual / ai_topic / ai_news
+            meta TEXT DEFAULT '{}',
+            created_at REAL
+        );
+        CREATE TABLE IF NOT EXISTS post_targets(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id INTEGER NOT NULL,
+            account_id INTEGER NOT NULL,
+            platform TEXT NOT NULL,
+            text_override TEXT DEFAULT '',
+            status TEXT DEFAULT 'pending',     -- pending/publishing/published/failed/waiting_network/missed/cancelled
+            attempts INTEGER DEFAULT 0,
+            due_at REAL NOT NULL,
+            next_try_at REAL DEFAULT 0,
+            remote_id TEXT DEFAULT '',
+            error TEXT DEFAULT '',
+            updated_at REAL
+        );
+        CREATE INDEX IF NOT EXISTS idx_post_targets_due ON post_targets(status, due_at);
+        CREATE INDEX IF NOT EXISTS idx_post_targets_group ON post_targets(group_id);
+        CREATE TABLE IF NOT EXISTS reply_rules(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,
+            name TEXT DEFAULT '',
+            media_id TEXT DEFAULT '',          -- فارغ = كل المنشورات
+            keywords TEXT DEFAULT '[]',
+            any_comment INTEGER DEFAULT 0,
+            whole_word INTEGER DEFAULT 1,
+            public_replies TEXT DEFAULT '[]',
+            dm_text TEXT DEFAULT '',
+            dm_link TEXT DEFAULT '',
+            active INTEGER DEFAULT 1,
+            created_at REAL
+        );
+        CREATE TABLE IF NOT EXISTS reply_log(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_id INTEGER, account_id INTEGER NOT NULL,
+            comment_id TEXT NOT NULL, media_id TEXT, user_id TEXT, username TEXT, comment_text TEXT,
+            public_text TEXT DEFAULT '', dm_text TEXT DEFAULT '',
+            public_status TEXT DEFAULT 'none',  -- none/pending/sending/sent/failed
+            dm_status TEXT DEFAULT 'none',
+            status TEXT DEFAULT 'queued',       -- queued/done
+            attempts INTEGER DEFAULT 0,
+            release_at REAL, error TEXT DEFAULT '',
+            created_at REAL, updated_at REAL,
+            UNIQUE(account_id, comment_id)
+        );
+        CREATE TABLE IF NOT EXISTS auto_rules(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT DEFAULT '',
+            kind TEXT NOT NULL,                -- news / topic
+            topic TEXT DEFAULT '',
+            account_ids TEXT DEFAULT '[]',
+            times TEXT DEFAULT '[]',           -- ["21:00"]
+            tone TEXT DEFAULT '',
+            require_approval INTEGER DEFAULT 1,
+            active INTEGER DEFAULT 1,
+            last_slot TEXT DEFAULT '',
+            recent_titles TEXT DEFAULT '[]',
+            created_at REAL
+        );
         """)
     try:
         import os
@@ -109,7 +177,7 @@ def delete_account(account_id):
 
 
 def reserve_rate_slot(account_id, action, max_per_hour, now=None):
-    if action not in ("comments", "likes") or max_per_hour <= 0:
+    if action not in ("comments", "likes", "replies", "dms") or max_per_hour <= 0:
         return False
     now = time.time() if now is None else now
     with _conn() as c:
@@ -317,3 +385,367 @@ def get_api_key(default=""):
     except Exception:
         set_api_key(stored)
         return stored
+
+
+# ---------- مجموعات النشر (منشور واحد لعدة منصات) ----------
+_ACTIVE_TARGET = ("pending", "waiting_network", "publishing")
+
+
+def create_group(text, media_id, media_kind, scheduled_at, targets, status="scheduled", source="manual", meta=None):
+    """targets: [{account_id, platform, text_override}]. يعيد معرّف المجموعة."""
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT INTO post_groups(text, media_id, media_kind, scheduled_at, status, source, meta, created_at) VALUES(?,?,?,?,?,?,?,?)",
+            (text, media_id or "", media_kind or "", scheduled_at, status, source,
+             json.dumps(meta or {}, ensure_ascii=False), time.time()),
+        )
+        gid = cur.lastrowid
+        for t in targets:
+            c.execute(
+                "INSERT INTO post_targets(group_id, account_id, platform, text_override, due_at, updated_at) VALUES(?,?,?,?,?,?)",
+                (gid, t["account_id"], t["platform"], t.get("text_override") or "", scheduled_at, time.time()),
+            )
+        return gid
+
+
+def get_group(group_id):
+    with _conn() as c:
+        return c.execute("SELECT * FROM post_groups WHERE id=?", (group_id,)).fetchone()
+
+
+def group_targets(group_id):
+    with _conn() as c:
+        return c.execute("SELECT * FROM post_targets WHERE group_id=? ORDER BY id", (group_id,)).fetchall()
+
+
+def list_groups(since=None, until=None, include_cancelled=False):
+    q, args = "SELECT * FROM post_groups WHERE 1=1", []
+    if since is not None:
+        q += " AND scheduled_at>=?"
+        args.append(since)
+    if until is not None:
+        q += " AND scheduled_at<?"
+        args.append(until)
+    if not include_cancelled:
+        q += " AND status!='cancelled'"
+    with _conn() as c:
+        return c.execute(q + " ORDER BY scheduled_at, id", args).fetchall()
+
+
+def update_group(group_id, text=None, scheduled_at=None, status=None, overrides=None):
+    """يعدّل مجموعة لم يبدأ نشرها. overrides: {account_id: نص}."""
+    with _conn() as c:
+        c.execute("BEGIN IMMEDIATE")
+        g = c.execute("SELECT * FROM post_groups WHERE id=?", (group_id,)).fetchone()
+        if not g or g["status"] == "cancelled":
+            return False
+        busy = c.execute(
+            "SELECT 1 FROM post_targets WHERE group_id=? AND status IN ('publishing','published')", (group_id,)
+        ).fetchone()
+        if busy:
+            return False
+        if text is not None:
+            c.execute("UPDATE post_groups SET text=? WHERE id=?", (text, group_id))
+        if status is not None:
+            c.execute("UPDATE post_groups SET status=? WHERE id=?", (status, group_id))
+        if scheduled_at is not None:
+            c.execute("UPDATE post_groups SET scheduled_at=? WHERE id=?", (scheduled_at, group_id))
+            c.execute(
+                "UPDATE post_targets SET due_at=?, next_try_at=0, status='pending', error='' WHERE group_id=? AND status IN ('pending','waiting_network','missed','failed')",
+                (scheduled_at, group_id),
+            )
+        for account_id, override in (overrides or {}).items():
+            c.execute(
+                "UPDATE post_targets SET text_override=? WHERE group_id=? AND account_id=?",
+                (override or "", group_id, int(account_id)),
+            )
+        return True
+
+
+def cancel_group(group_id):
+    """يلغي الأهداف التي لم تُنشر بعد. يعيد (تم، معرّف الملف إن صار بلا استخدام)."""
+    with _conn() as c:
+        c.execute("BEGIN IMMEDIATE")
+        g = c.execute("SELECT * FROM post_groups WHERE id=?", (group_id,)).fetchone()
+        if not g:
+            return False, ""
+        c.execute(
+            "UPDATE post_targets SET status='cancelled' WHERE group_id=? AND status IN ('pending','waiting_network','missed','failed')",
+            (group_id,),
+        )
+        still = c.execute(
+            "SELECT 1 FROM post_targets WHERE group_id=? AND status IN ('publishing','published')", (group_id,)
+        ).fetchone()
+        if not still:
+            c.execute("UPDATE post_groups SET status='cancelled' WHERE id=?", (group_id,))
+        media = g["media_id"] if not still else ""
+        return True, media
+
+
+def retry_target(target_id):
+    with _conn() as c:
+        now = time.time()
+        cur = c.execute(
+            "UPDATE post_targets SET status='pending', attempts=0, due_at=?, next_try_at=0, error='', updated_at=? "
+            "WHERE id=? AND status IN ('failed','missed')",
+            (now, now, target_id),
+        )
+        return cur.rowcount == 1
+
+
+def claim_due_targets(now=None, grace_sec=12 * 3600):
+    """يحجز الأهداف المستحقة ذرّياً (publishing) قبل الإرسال. المتأخر عن المهلة يصير missed."""
+    now = time.time() if now is None else now
+    with _conn() as c:
+        c.execute("BEGIN IMMEDIATE")
+        rows = c.execute(
+            "SELECT t.* FROM post_targets t JOIN post_groups g ON g.id=t.group_id "
+            "WHERE g.status='scheduled' AND t.status IN ('pending','waiting_network') "
+            "AND t.due_at<=? AND t.next_try_at<=? ORDER BY t.due_at, t.id",
+            (now, now),
+        ).fetchall()
+        claimed = []
+        for r in rows:
+            if now - r["due_at"] > grace_sec:
+                c.execute(
+                    "UPDATE post_targets SET status='missed', error='فات الموعد ولم يتوفر إنترنت خلال المهلة', updated_at=? WHERE id=?",
+                    (now, r["id"]),
+                )
+                continue
+            c.execute(
+                "UPDATE post_targets SET status='publishing', attempts=attempts+1, updated_at=? WHERE id=? AND status IN ('pending','waiting_network')",
+                (now, r["id"]),
+            )
+            claimed.append(r)
+        return claimed
+
+
+def recover_stuck_targets(now=None, older_than=900):
+    """هدف بقي publishing بعد قتل العملية: لا نعيد الإرسال أبداً لأن النتيجة غير معروفة."""
+    now = time.time() if now is None else now
+    with _conn() as c:
+        cur = c.execute(
+            "UPDATE post_targets SET status='failed', error='توقفت العملية أثناء النشر، تحقق من الحساب قبل إعادة المحاولة', updated_at=? "
+            "WHERE status='publishing' AND updated_at<?",
+            (now, now - older_than),
+        )
+        return cur.rowcount
+
+
+def finish_target(target_id, status, error="", remote_id="", next_try_at=0):
+    with _conn() as c:
+        c.execute(
+            "UPDATE post_targets SET status=?, error=?, remote_id=?, next_try_at=?, updated_at=? WHERE id=?",
+            (status, error[:500], remote_id, next_try_at, time.time(), target_id),
+        )
+
+
+def group_media_if_done(group_id):
+    """يعيد معرّف الملف إذا نُشر كل شيء أو أُلغي (لا يلزم الملف بعد الآن)."""
+    with _conn() as c:
+        g = c.execute("SELECT media_id FROM post_groups WHERE id=?", (group_id,)).fetchone()
+        if not g or not g["media_id"]:
+            return ""
+        open_ = c.execute(
+            "SELECT 1 FROM post_targets WHERE group_id=? AND status NOT IN ('published','cancelled')", (group_id,)
+        ).fetchone()
+        return "" if open_ else g["media_id"]
+
+
+def clear_group_media(group_id):
+    with _conn() as c:
+        c.execute("UPDATE post_groups SET media_id='' WHERE id=?", (group_id,))
+
+
+def referenced_media_ids():
+    """ملفات ما زالت لازمة: مجموعات فيها هدف غير منتهٍ أو فاشل، أو منشورات قديمة معلّقة."""
+    with _conn() as c:
+        ids = {r[0] for r in c.execute(
+            "SELECT DISTINCT g.media_id FROM post_groups g JOIN post_targets t ON t.group_id=g.id "
+            "WHERE g.media_id!='' AND g.status!='cancelled' AND t.status NOT IN ('published','cancelled')"
+        )}
+        ids |= {r[0] for r in c.execute("SELECT media_id FROM post_groups WHERE status='draft' AND media_id!=''")}
+        for r in c.execute("SELECT media_path FROM scheduled_posts WHERE status='pending' AND media_path IS NOT NULL"):
+            ids.add(str(r[0]).replace("\\", "/").rsplit("/", 1)[-1])
+        return ids
+
+
+def target_counts():
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT t.status, COUNT(*) AS n FROM post_targets t JOIN post_groups g ON g.id=t.group_id "
+            "WHERE g.status!='cancelled' GROUP BY t.status"
+        ).fetchall()
+        return {r["status"]: r["n"] for r in rows}
+
+
+# ---------- Gemini والقواعد المتكررة ----------
+def set_gemini_key(value):
+    from core import accounts as acc_store
+    set_setting("gemini_api_key", acc_store.encrypt({"value": value}))
+
+
+def get_gemini_key(default=""):
+    from core import accounts as acc_store
+    stored = get_setting("gemini_api_key", "")
+    if not stored:
+        return default
+    try:
+        return acc_store.decrypt(stored).get("value", default)
+    except Exception:
+        return default
+
+
+def add_rule(name, kind, topic, account_ids, times, tone, require_approval):
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT INTO auto_rules(name, kind, topic, account_ids, times, tone, require_approval, created_at) VALUES(?,?,?,?,?,?,?,?)",
+            (name, kind, topic, json.dumps(account_ids), json.dumps(times), tone, 1 if require_approval else 0, time.time()),
+        )
+        return cur.lastrowid
+
+
+def list_rules():
+    with _conn() as c:
+        return c.execute("SELECT * FROM auto_rules ORDER BY id").fetchall()
+
+
+def get_rule(rule_id):
+    with _conn() as c:
+        return c.execute("SELECT * FROM auto_rules WHERE id=?", (rule_id,)).fetchone()
+
+
+def update_rule(rule_id, **fields):
+    allowed = {"name", "topic", "tone", "require_approval", "active", "account_ids", "times"}
+    sets, args = [], []
+    for k, v in fields.items():
+        if k not in allowed:
+            continue
+        if k in ("account_ids", "times"):
+            v = json.dumps(v)
+        elif k in ("require_approval", "active"):
+            v = 1 if v else 0
+        sets.append(f"{k}=?")
+        args.append(v)
+    if not sets:
+        return False
+    with _conn() as c:
+        cur = c.execute(f"UPDATE auto_rules SET {', '.join(sets)} WHERE id=?", (*args, rule_id))
+        return cur.rowcount == 1
+
+
+def delete_rule(rule_id):
+    with _conn() as c:
+        c.execute("DELETE FROM auto_rules WHERE id=?", (rule_id,))
+
+
+def mark_rule_run(rule_id, slot, title):
+    with _conn() as c:
+        row = c.execute("SELECT recent_titles FROM auto_rules WHERE id=?", (rule_id,)).fetchone()
+        titles = json.loads(row["recent_titles"]) if row else []
+        if title:
+            titles = (titles + [title])[-30:]
+        c.execute("UPDATE auto_rules SET last_slot=?, recent_titles=? WHERE id=?",
+                  (slot, json.dumps(titles, ensure_ascii=False), rule_id))
+
+
+# ---------- الردود التلقائية على التعليقات ----------
+def add_reply_rule(account_id, name, media_id, keywords, any_comment, whole_word, public_replies, dm_text, dm_link):
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT INTO reply_rules(account_id, name, media_id, keywords, any_comment, whole_word, public_replies, dm_text, dm_link, created_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (account_id, name, media_id, json.dumps(keywords, ensure_ascii=False), 1 if any_comment else 0,
+             1 if whole_word else 0, json.dumps(public_replies, ensure_ascii=False), dm_text, dm_link, time.time()),
+        )
+        return cur.lastrowid
+
+
+def list_reply_rules(account_id=None, active_only=False):
+    q, args = "SELECT * FROM reply_rules WHERE 1=1", []
+    if account_id is not None:
+        q += " AND account_id=?"
+        args.append(account_id)
+    if active_only:
+        q += " AND active=1"
+    with _conn() as c:
+        return c.execute(q + " ORDER BY (media_id='') , id", args).fetchall()
+
+
+def update_reply_rule(rule_id, **fields):
+    json_fields = {"keywords", "public_replies"}
+    flags = {"any_comment", "whole_word", "active"}
+    allowed = json_fields | flags | {"name", "media_id", "dm_text", "dm_link"}
+    sets, args = [], []
+    for k, v in fields.items():
+        if k not in allowed:
+            continue
+        if k in json_fields:
+            v = json.dumps(v, ensure_ascii=False)
+        elif k in flags:
+            v = 1 if v else 0
+        sets.append(f"{k}=?")
+        args.append(v)
+    if not sets:
+        return False
+    with _conn() as c:
+        return c.execute(f"UPDATE reply_rules SET {', '.join(sets)} WHERE id=?", (*args, rule_id)).rowcount == 1
+
+
+def delete_reply_rule(rule_id):
+    with _conn() as c:
+        c.execute("DELETE FROM reply_rules WHERE id=?", (rule_id,))
+
+
+def queue_reply(rule_id, account_id, comment, public_text, dm_text, release_at):
+    """يسجّل تعليقاً للرد. UNIQUE يمنع الرد مرتين على نفس التعليق. يعيد None إن سبق."""
+    now = time.time()
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT OR IGNORE INTO reply_log(rule_id, account_id, comment_id, media_id, user_id, username, comment_text, "
+            "public_text, dm_text, public_status, dm_status, release_at, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (rule_id, account_id, comment["comment_id"], comment["media_id"], comment["user_id"], comment["username"],
+             comment["text"], public_text, dm_text, "pending" if public_text else "none", "pending" if dm_text else "none",
+             release_at, now, now),
+        )
+        return cur.lastrowid if cur.rowcount else None
+
+
+def seen_comment(account_id, comment_id):
+    with _conn() as c:
+        return c.execute("SELECT 1 FROM reply_log WHERE account_id=? AND comment_id=?", (account_id, comment_id)).fetchone() is not None
+
+
+def due_replies(now=None):
+    now = time.time() if now is None else now
+    with _conn() as c:
+        return c.execute("SELECT * FROM reply_log WHERE status='queued' AND release_at<=? ORDER BY release_at, id", (now,)).fetchall()
+
+
+def set_reply_part(reply_id, part, state, error="", release_at=None, attempts_inc=False):
+    """part: public أو dm. state: pending/sending/sent/failed. 'sending' يُسجَّل قبل الإرسال."""
+    col = "public_status" if part == "public" else "dm_status"
+    with _conn() as c:
+        c.execute(f"UPDATE reply_log SET {col}=?, error=?, updated_at=? WHERE id=?", (state, error[:300], time.time(), reply_id))
+        if release_at is not None:
+            c.execute("UPDATE reply_log SET release_at=? WHERE id=?", (release_at, reply_id))
+        if attempts_inc:
+            c.execute("UPDATE reply_log SET attempts=attempts+1 WHERE id=?", (reply_id,))
+        row = c.execute("SELECT public_status, dm_status FROM reply_log WHERE id=?", (reply_id,)).fetchone()
+        if row["public_status"] not in ("pending", "sending") and row["dm_status"] not in ("pending", "sending"):
+            c.execute("UPDATE reply_log SET status='done' WHERE id=?", (reply_id,))
+
+
+def recover_stuck_replies(now=None, older_than=900):
+    now = time.time() if now is None else now
+    with _conn() as c:
+        for col in ("public_status", "dm_status"):
+            c.execute(f"UPDATE reply_log SET {col}='failed', error='توقفت العملية أثناء الإرسال، النتيجة غير مؤكدة', updated_at=? "
+                      f"WHERE {col}='sending' AND updated_at<?", (now, now - older_than))
+        c.execute("UPDATE reply_log SET status='done' WHERE status='queued' AND public_status NOT IN ('pending','sending') "
+                  "AND dm_status NOT IN ('pending','sending')")
+
+
+def list_reply_log(limit=100):
+    with _conn() as c:
+        return c.execute("SELECT * FROM reply_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()

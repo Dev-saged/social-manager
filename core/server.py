@@ -16,8 +16,13 @@ import config
 from core import database as db
 from core import interaction
 from core import ai_engine
+from platforms import platform_names
 
 app = Flask(__name__, static_folder=None)
+from core.routes_v2 import bp as _v2
+app.register_blueprint(_v2)
+from core.routes_replies import bp as _replies
+app.register_blueprint(_replies)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
 UI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
 MEDIA_DIR = os.path.join(config.DATA_DIR, "media")
@@ -27,6 +32,9 @@ ACCOUNT_FIELDS = {
     ("instagram", "business"): {"access_token", "ig_user_id"},
     ("facebook", "personal"): {"access_token", "page_id"},
     ("x", "personal"): {"api_key", "api_secret", "access_token", "access_token_secret"},
+    ("telegram", "personal"): {"bot_token", "chat_id"},
+    ("bluesky", "personal"): {"identifier", "app_password"},
+    ("threads", "personal"): {"access_token", "user_id"},
 }
 
 # حالة بناء الطابور (تُقرأ من الواجهة بالاستقصاء)
@@ -58,6 +66,18 @@ def request_too_large(_error):
 @app.get("/")
 def home():
     return send_from_directory(UI_DIR, "index.html")
+
+
+PWA_FILES = {"manifest.webmanifest": "application/manifest+json", "sw.js": "text/javascript", "icon.svg": "image/svg+xml"}
+
+
+@app.get("/<name>")
+def pwa_file(name):
+    if name not in PWA_FILES:
+        return jsonify({"error": "غير موجود"}), 404
+    resp = send_from_directory(UI_DIR, name, mimetype=PWA_FILES[name])
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 # ---------- لوحة المعلومات ----------
@@ -98,7 +118,7 @@ def add_account():
         return jsonify({"error": "نوع حساب Instagram غير صحيح"}), 400
     if platform != "instagram":
         account_type = "personal"
-    if platform not in ("instagram", "facebook", "x", "youtube") or not username:
+    if platform not in platform_names() or not username:
         return jsonify({"error": "منصة غير صحيحة أو اسم مستخدم فارغ"}), 400
     credentials = data.get("credentials") or {}
     if not isinstance(credentials, dict):
@@ -351,6 +371,9 @@ def get_settings():
     return jsonify({
         "persona": db.get_setting("persona", config.DEFAULT_PERSONA),
         "has_api_key": bool(db.get_setting("thaura_api_key", "") or config.THAURA_API_KEY),
+        "has_gemini_key": bool(db.get_gemini_key(config.GEMINI_API_KEY)),
+        "gemini_model": db.get_setting("gemini_model", ""),
+        "missed_grace_hours": db.get_setting("missed_grace_hours", "12"),
     })
 
 
@@ -359,6 +382,15 @@ def save_settings():
     data = request.get_json(force=True)
     if "persona" in data:
         db.set_setting("persona", data["persona"])
+    if data.get("gemini_api_key"):
+        db.set_gemini_key(data["gemini_api_key"].strip())
+    if "gemini_model" in data:
+        db.set_setting("gemini_model", str(data["gemini_model"]).strip())
+    if "missed_grace_hours" in data:
+        try:
+            db.set_setting("missed_grace_hours", str(max(1, min(168, float(data["missed_grace_hours"])))))
+        except (TypeError, ValueError):
+            return jsonify({"error": "المهلة رقم بالساعات"}), 400
     if data.get("api_key"):
         db.set_api_key(data["api_key"])
         import core.ai_engine as ai

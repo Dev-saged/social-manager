@@ -19,8 +19,14 @@ class RateLimiter:
         return db.reserve_rate_slot(self.account_id, self.action, self.max_per_hour)
 
 
+class NotSupported(ValueError):
+    """العملية غير متاحة في هذه المنصة (خطأ دائم، لا فائدة من إعادة المحاولة)."""
+
+
 class BasePlatform(ABC):
     name = ""
+    # ما تستطيع المنصة نشره: تستخدمه الواجهة والخادم لتعطيل الخيارات غير الممكنة
+    capabilities = {"text": True, "image": True, "video": False, "max_len": 2000}
     # أسماء الحقول المطلوبة في بيانات الدخول لكل حساب
     required_fields = []
 
@@ -37,10 +43,32 @@ class BasePlatform(ABC):
         account_id = self.account["id"]
         self.comment_limiter = RateLimiter(account_id, "comments", limits.get("comments_per_hour", 8))
         self.like_limiter = RateLimiter(account_id, "likes", limits.get("likes_per_hour", 20))
+        self.reply_limiter = RateLimiter(account_id, "replies", limits.get("replies_per_hour", 20))
+        self.dm_limiter = RateLimiter(account_id, "dms", limits.get("dms_per_hour", 10))
 
     @abstractmethod
     def publish(self, text, media_path=None):
         """ينشر منشوراً على حساب صاحب الأداة."""
+
+    def publish_video(self, text, media_path):
+        """نشر فيديو. تتجاوزه المنصات التي تدعمه."""
+        raise NotSupported("هذه المنصة لا تدعم نشر الفيديو")
+
+    def publish_media(self, text, media_path=None, kind=""):
+        """نقطة دخول المحرك: يوجّه إلى publish أو publish_video حسب نوع الملف."""
+        if kind == "video":
+            return self.publish_video(text, media_path)
+        return self.publish(text, media_path)
+
+    def recent_comments(self, media_limit=10, per_media=40):
+        """تعليقات الناس على منشورات حسابك: [{comment_id, media_id, user_id, username, text, ts}]."""
+        raise NotSupported("الردود التلقائية غير مدعومة في هذه المنصة")
+
+    def reply_to_comment(self, media_id, comment_id, text):
+        raise NotSupported("الردود التلقائية غير مدعومة في هذه المنصة")
+
+    def send_dm(self, user_id, text, comment_id=None):
+        raise NotSupported("الرسائل الخاصة غير مدعومة في هذه المنصة")
 
     @abstractmethod
     def comment(self, post_id, text):

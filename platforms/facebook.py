@@ -12,6 +12,7 @@ GRAPH = "https://graph.facebook.com/v21.0"
 class FacebookPlatform(BasePlatform):
     name = "facebook"
     required_fields = ["access_token", "page_id"]
+    capabilities = {"text": True, "image": True, "video": True, "max_len": 60000}
 
     def _graph(self, endpoint, method="GET", **params):
         params["access_token"] = self.creds["access_token"]
@@ -32,6 +33,17 @@ class FacebookPlatform(BasePlatform):
             r.raise_for_status()
         else:
             self._graph(f"{self.creds['page_id']}/feed", "POST", message=text)
+
+    def publish_video(self, text, media_path):
+        with open(media_path, "rb") as f:
+            r = requests.post(
+                f"{GRAPH}/{self.creds['page_id']}/videos",
+                data={"description": text, "access_token": self.creds["access_token"]},
+                files={"source": f},
+                timeout=600,
+            )
+        r.raise_for_status()
+        return str(r.json().get("id", ""))
 
     def comment(self, post_id, text):
         if not self.comment_limiter.allow():

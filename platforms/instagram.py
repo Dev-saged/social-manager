@@ -79,6 +79,55 @@ class InstagramPlatform(BasePlatform):
             else:
                 raise ValueError("انستغرام الشخصي: النشر يحتاج صورة على الأقل (أو استخدم وضع business)")
 
+    # ---------- الردود التلقائية ----------
+    def recent_comments(self, media_limit=10, per_media=40):
+        import datetime
+        out = []
+        if self.mode == "business":
+            medias = self._graph(f"{self.creds['ig_user_id']}/media", fields="id,comments_count", limit=media_limit).get("data", [])
+            for m in medias:
+                if not m.get("comments_count"):
+                    continue
+                data = requests.get(f"{GRAPH}/{m['id']}/comments", timeout=30, params={
+                    "fields": "id,text,username,timestamp,from", "limit": per_media,
+                    "access_token": self.creds["access_token"]})
+                data.raise_for_status()
+                for c in data.json().get("data", []):
+                    if c.get("username") == self.account["username"]:
+                        continue
+                    ts = datetime.datetime.fromisoformat(c["timestamp"].replace("+0000", "+00:00")).timestamp()
+                    out.append({"comment_id": c["id"], "media_id": m["id"], "user_id": str((c.get("from") or {}).get("id", "")),
+                                "username": c.get("username", ""), "text": c.get("text", ""), "ts": ts})
+            return out
+        cl = self._personal_client()
+        me = str(cl.user_id)
+        for m in cl.user_medias(me, amount=media_limit):
+            if not m.comment_count:
+                continue
+            for c in cl.media_comments(m.pk, amount=per_media):
+                if str(c.user.pk) == me:
+                    continue
+                ts = c.created_at_utc.replace(tzinfo=datetime.timezone.utc).timestamp()
+                out.append({"comment_id": str(c.pk), "media_id": str(m.pk), "user_id": str(c.user.pk),
+                            "username": c.user.username, "text": c.text or "", "ts": ts})
+        return out
+
+    def reply_to_comment(self, media_id, comment_id, text):
+        if self.mode == "business":
+            self._graph(f"{comment_id}/replies", "POST", message=text)
+        else:
+            self._personal_client().media_comment(media_id, text, replied_to_comment_id=int(comment_id))
+
+    def send_dm(self, user_id, text, comment_id=None):
+        if self.mode == "business":
+            # Private Reply الرسمي: رد واحد لكل تعليق خلال 7 أيام
+            r = requests.post(f"{GRAPH}/{self.creds['ig_user_id']}/messages", timeout=30, params={
+                "access_token": self.creds["access_token"]},
+                json={"recipient": {"comment_id": comment_id}, "message": {"text": text}})
+            r.raise_for_status()
+        else:
+            self._personal_client().direct_send(text, user_ids=[int(user_id)])
+
     def publish_video(self, text, media_path):
         if self.mode == "business":
             raise NotSupported("Instagram Business يحتاج رابط فيديو عاماً، استخدم الوضع الشخصي")

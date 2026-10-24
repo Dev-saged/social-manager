@@ -92,6 +92,33 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_post_targets_due ON post_targets(status, due_at);
         CREATE INDEX IF NOT EXISTS idx_post_targets_group ON post_targets(group_id);
+        CREATE TABLE IF NOT EXISTS reply_rules(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,
+            name TEXT DEFAULT '',
+            media_id TEXT DEFAULT '',          -- فارغ = كل المنشورات
+            keywords TEXT DEFAULT '[]',
+            any_comment INTEGER DEFAULT 0,
+            whole_word INTEGER DEFAULT 1,
+            public_replies TEXT DEFAULT '[]',
+            dm_text TEXT DEFAULT '',
+            dm_link TEXT DEFAULT '',
+            active INTEGER DEFAULT 1,
+            created_at REAL
+        );
+        CREATE TABLE IF NOT EXISTS reply_log(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_id INTEGER, account_id INTEGER NOT NULL,
+            comment_id TEXT NOT NULL, media_id TEXT, user_id TEXT, username TEXT, comment_text TEXT,
+            public_text TEXT DEFAULT '', dm_text TEXT DEFAULT '',
+            public_status TEXT DEFAULT 'none',  -- none/pending/sending/sent/failed
+            dm_status TEXT DEFAULT 'none',
+            status TEXT DEFAULT 'queued',       -- queued/done
+            attempts INTEGER DEFAULT 0,
+            release_at REAL, error TEXT DEFAULT '',
+            created_at REAL, updated_at REAL,
+            UNIQUE(account_id, comment_id)
+        );
         CREATE TABLE IF NOT EXISTS auto_rules(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT DEFAULT '',
@@ -150,7 +177,7 @@ def delete_account(account_id):
 
 
 def reserve_rate_slot(account_id, action, max_per_hour, now=None):
-    if action not in ("comments", "likes") or max_per_hour <= 0:
+    if action not in ("comments", "likes", "replies", "dms") or max_per_hour <= 0:
         return False
     now = time.time() if now is None else now
     with _conn() as c:
@@ -620,3 +647,105 @@ def mark_rule_run(rule_id, slot, title):
             titles = (titles + [title])[-30:]
         c.execute("UPDATE auto_rules SET last_slot=?, recent_titles=? WHERE id=?",
                   (slot, json.dumps(titles, ensure_ascii=False), rule_id))
+
+
+# ---------- الردود التلقائية على التعليقات ----------
+def add_reply_rule(account_id, name, media_id, keywords, any_comment, whole_word, public_replies, dm_text, dm_link):
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT INTO reply_rules(account_id, name, media_id, keywords, any_comment, whole_word, public_replies, dm_text, dm_link, created_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (account_id, name, media_id, json.dumps(keywords, ensure_ascii=False), 1 if any_comment else 0,
+             1 if whole_word else 0, json.dumps(public_replies, ensure_ascii=False), dm_text, dm_link, time.time()),
+        )
+        return cur.lastrowid
+
+
+def list_reply_rules(account_id=None, active_only=False):
+    q, args = "SELECT * FROM reply_rules WHERE 1=1", []
+    if account_id is not None:
+        q += " AND account_id=?"
+        args.append(account_id)
+    if active_only:
+        q += " AND active=1"
+    with _conn() as c:
+        return c.execute(q + " ORDER BY (media_id='') , id", args).fetchall()
+
+
+def update_reply_rule(rule_id, **fields):
+    json_fields = {"keywords", "public_replies"}
+    flags = {"any_comment", "whole_word", "active"}
+    allowed = json_fields | flags | {"name", "media_id", "dm_text", "dm_link"}
+    sets, args = [], []
+    for k, v in fields.items():
+        if k not in allowed:
+            continue
+        if k in json_fields:
+            v = json.dumps(v, ensure_ascii=False)
+        elif k in flags:
+            v = 1 if v else 0
+        sets.append(f"{k}=?")
+        args.append(v)
+    if not sets:
+        return False
+    with _conn() as c:
+        return c.execute(f"UPDATE reply_rules SET {', '.join(sets)} WHERE id=?", (*args, rule_id)).rowcount == 1
+
+
+def delete_reply_rule(rule_id):
+    with _conn() as c:
+        c.execute("DELETE FROM reply_rules WHERE id=?", (rule_id,))
+
+
+def queue_reply(rule_id, account_id, comment, public_text, dm_text, release_at):
+    """يسجّل تعليقاً للرد. UNIQUE يمنع الرد مرتين على نفس التعليق. يعيد None إن سبق."""
+    now = time.time()
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT OR IGNORE INTO reply_log(rule_id, account_id, comment_id, media_id, user_id, username, comment_text, "
+            "public_text, dm_text, public_status, dm_status, release_at, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (rule_id, account_id, comment["comment_id"], comment["media_id"], comment["user_id"], comment["username"],
+             comment["text"], public_text, dm_text, "pending" if public_text else "none", "pending" if dm_text else "none",
+             release_at, now, now),
+        )
+        return cur.lastrowid if cur.rowcount else None
+
+
+def seen_comment(account_id, comment_id):
+    with _conn() as c:
+        return c.execute("SELECT 1 FROM reply_log WHERE account_id=? AND comment_id=?", (account_id, comment_id)).fetchone() is not None
+
+
+def due_replies(now=None):
+    now = time.time() if now is None else now
+    with _conn() as c:
+        return c.execute("SELECT * FROM reply_log WHERE status='queued' AND release_at<=? ORDER BY release_at, id", (now,)).fetchall()
+
+
+def set_reply_part(reply_id, part, state, error="", release_at=None, attempts_inc=False):
+    """part: public أو dm. state: pending/sending/sent/failed. 'sending' يُسجَّل قبل الإرسال."""
+    col = "public_status" if part == "public" else "dm_status"
+    with _conn() as c:
+        c.execute(f"UPDATE reply_log SET {col}=?, error=?, updated_at=? WHERE id=?", (state, error[:300], time.time(), reply_id))
+        if release_at is not None:
+            c.execute("UPDATE reply_log SET release_at=? WHERE id=?", (release_at, reply_id))
+        if attempts_inc:
+            c.execute("UPDATE reply_log SET attempts=attempts+1 WHERE id=?", (reply_id,))
+        row = c.execute("SELECT public_status, dm_status FROM reply_log WHERE id=?", (reply_id,)).fetchone()
+        if row["public_status"] not in ("pending", "sending") and row["dm_status"] not in ("pending", "sending"):
+            c.execute("UPDATE reply_log SET status='done' WHERE id=?", (reply_id,))
+
+
+def recover_stuck_replies(now=None, older_than=900):
+    now = time.time() if now is None else now
+    with _conn() as c:
+        for col in ("public_status", "dm_status"):
+            c.execute(f"UPDATE reply_log SET {col}='failed', error='توقفت العملية أثناء الإرسال، النتيجة غير مؤكدة', updated_at=? "
+                      f"WHERE {col}='sending' AND updated_at<?", (now, now - older_than))
+        c.execute("UPDATE reply_log SET status='done' WHERE status='queued' AND public_status NOT IN ('pending','sending') "
+                  "AND dm_status NOT IN ('pending','sending')")
+
+
+def list_reply_log(limit=100):
+    with _conn() as c:
+        return c.execute("SELECT * FROM reply_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()

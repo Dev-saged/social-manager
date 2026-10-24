@@ -8,6 +8,7 @@ import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 from core import database as db
 from core import publisher
+from core import auto_reply
 from core import auto_rules
 from core import media
 from platforms import get as get_adapter
@@ -47,6 +48,10 @@ def tick():
         auto_rules.run_due()
     except Exception as e:
         db.log("system", "rules_tick", str(e), ok=0)
+    try:
+        auto_reply.run()
+    except Exception as e:
+        db.log("system", "reply_tick", str(e), ok=0)
     try:
         _release_approved_comments()
     except Exception as e:

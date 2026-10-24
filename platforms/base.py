@@ -43,6 +43,8 @@ class BasePlatform(ABC):
         account_id = self.account["id"]
         self.comment_limiter = RateLimiter(account_id, "comments", limits.get("comments_per_hour", 8))
         self.like_limiter = RateLimiter(account_id, "likes", limits.get("likes_per_hour", 20))
+        self.reply_limiter = RateLimiter(account_id, "replies", limits.get("replies_per_hour", 20))
+        self.dm_limiter = RateLimiter(account_id, "dms", limits.get("dms_per_hour", 10))
 
     @abstractmethod
     def publish(self, text, media_path=None):
@@ -57,6 +59,16 @@ class BasePlatform(ABC):
         if kind == "video":
             return self.publish_video(text, media_path)
         return self.publish(text, media_path)
+
+    def recent_comments(self, media_limit=10, per_media=40):
+        """تعليقات الناس على منشورات حسابك: [{comment_id, media_id, user_id, username, text, ts}]."""
+        raise NotSupported("الردود التلقائية غير مدعومة في هذه المنصة")
+
+    def reply_to_comment(self, media_id, comment_id, text):
+        raise NotSupported("الردود التلقائية غير مدعومة في هذه المنصة")
+
+    def send_dm(self, user_id, text, comment_id=None):
+        raise NotSupported("الرسائل الخاصة غير مدعومة في هذه المنصة")
 
     @abstractmethod
     def comment(self, post_id, text):

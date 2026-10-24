@@ -21,6 +21,8 @@ from platforms import platform_names
 app = Flask(__name__, static_folder=None)
 from core.routes_v2 import bp as _v2
 app.register_blueprint(_v2)
+from core.routes_replies import bp as _replies
+app.register_blueprint(_replies)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
 UI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
 MEDIA_DIR = os.path.join(config.DATA_DIR, "media")

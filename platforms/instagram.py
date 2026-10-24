@@ -6,13 +6,14 @@
   خطر الحظر موجود فعلياً، لذلك معدلاتها منخفضة جداً والتفاعل يمر دائماً بموافقتك اليدوية.
 """
 import requests
-from platforms.base import BasePlatform, RateLimitExceeded
+from platforms.base import BasePlatform, NotSupported, RateLimitExceeded
 
 GRAPH = "https://graph.facebook.com/v21.0"
 
 
 class InstagramPlatform(BasePlatform):
     name = "instagram"
+    capabilities = {"text": False, "image": True, "video": True, "max_len": 2200}
     required_fields = []  # تُفحص حسب الوضع في __init__
 
     def __init__(self, account_row):
@@ -33,11 +34,32 @@ class InstagramPlatform(BasePlatform):
         r.raise_for_status()
         return r.json()
 
+    def _session_path(self):
+        import os
+        import config
+        folder = os.path.join(config.DATA_DIR, "ig_sessions")
+        os.makedirs(folder, mode=0o700, exist_ok=True)
+        return os.path.join(folder, f"{self.account['id']}.json")
+
     def _personal_client(self):
+        """يعيد استخدام الجلسة المحفوظة فلا يُسجَّل الدخول من جديد في كل مرة."""
         if self._cl is None:
+            import os
             from instagrapi import Client
-            self._cl = Client()
-            self._cl.login(self.account["username"], self.creds["password"])
+            cl = Client()
+            path = self._session_path()
+            if os.path.exists(path):
+                try:
+                    cl.load_settings(path)
+                except Exception:
+                    pass
+            cl.login(self.account["username"], self.creds["password"])
+            try:
+                cl.dump_settings(path)
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+            self._cl = cl
         return self._cl
 
     # ---------- التنفيذ ----------
@@ -56,6 +78,13 @@ class InstagramPlatform(BasePlatform):
                 cl.photo_upload(media_path, text)
             else:
                 raise ValueError("انستغرام الشخصي: النشر يحتاج صورة على الأقل (أو استخدم وضع business)")
+
+    def publish_video(self, text, media_path):
+        if self.mode == "business":
+            raise NotSupported("Instagram Business يحتاج رابط فيديو عاماً، استخدم الوضع الشخصي")
+        from pathlib import Path
+        media = self._personal_client().clip_upload(Path(media_path), text)
+        return str(getattr(media, "pk", "") or "")
 
     def comment(self, post_id, text):
         if not self.comment_limiter.allow():

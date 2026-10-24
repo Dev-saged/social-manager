@@ -28,3 +28,9 @@ def get(platform, account_row):
 
 def platform_names():
     return ["instagram", "facebook", "x", "youtube"]
+
+
+def capabilities():
+    """إمكانيات كل منصة (نص/صورة/فيديو/أقصى طول) دون الحاجة لبيانات دخول."""
+    _load()
+    return {name: dict(cls.capabilities) for name, cls in ADAPTERS.items()}

@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+APP_VERSION = "1.1.0"
+
 # ---- Thaura API (توليد التعليقات والمحتوى) ----
 THAURA_API_KEY = os.getenv("THAURA_API_KEY", "")
 THAURA_BASE_URL = "https://backend.thaura.ai/v1"

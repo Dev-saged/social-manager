@@ -16,8 +16,11 @@ import config
 from core import database as db
 from core import interaction
 from core import ai_engine
+from platforms import platform_names
 
 app = Flask(__name__, static_folder=None)
+from core.routes_v2 import bp as _v2
+app.register_blueprint(_v2)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
 UI_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
 MEDIA_DIR = os.path.join(config.DATA_DIR, "media")
@@ -98,7 +101,7 @@ def add_account():
         return jsonify({"error": "نوع حساب Instagram غير صحيح"}), 400
     if platform != "instagram":
         account_type = "personal"
-    if platform not in ("instagram", "facebook", "x", "youtube") or not username:
+    if platform not in platform_names() or not username:
         return jsonify({"error": "منصة غير صحيحة أو اسم مستخدم فارغ"}), 400
     credentials = data.get("credentials") or {}
     if not isinstance(credentials, dict):

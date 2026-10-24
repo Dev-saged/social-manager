@@ -19,8 +19,14 @@ class RateLimiter:
         return db.reserve_rate_slot(self.account_id, self.action, self.max_per_hour)
 
 
+class NotSupported(ValueError):
+    """العملية غير متاحة في هذه المنصة (خطأ دائم، لا فائدة من إعادة المحاولة)."""
+
+
 class BasePlatform(ABC):
     name = ""
+    # ما تستطيع المنصة نشره: تستخدمه الواجهة والخادم لتعطيل الخيارات غير الممكنة
+    capabilities = {"text": True, "image": True, "video": False, "max_len": 2000}
     # أسماء الحقول المطلوبة في بيانات الدخول لكل حساب
     required_fields = []
 
@@ -41,6 +47,16 @@ class BasePlatform(ABC):
     @abstractmethod
     def publish(self, text, media_path=None):
         """ينشر منشوراً على حساب صاحب الأداة."""
+
+    def publish_video(self, text, media_path):
+        """نشر فيديو. تتجاوزه المنصات التي تدعمه."""
+        raise NotSupported("هذه المنصة لا تدعم نشر الفيديو")
+
+    def publish_media(self, text, media_path=None, kind=""):
+        """نقطة دخول المحرك: يوجّه إلى publish أو publish_video حسب نوع الملف."""
+        if kind == "video":
+            return self.publish_video(text, media_path)
+        return self.publish(text, media_path)
 
     @abstractmethod
     def comment(self, post_id, text):

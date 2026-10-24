@@ -14,6 +14,7 @@ Keep under 5KB. No code. Update by 2 lines after every change.
 - core/auto_rules.py: daily rule slots -> Gemini -> group (draft or scheduled)
 - core/auto_reply.py + keywords.py: comment polling, Arabic matcher, public reply + DM
 - core/gemini.py: Interactions API (grounded news) with generateContent fallback
+- core/deps.py: background pip of optional libs into DATA_DIR/pylibs (stage+swap, cache, retry, weekly upgrade); /api/deps
 - core/media.py, net.py, accounts.py (Fernet), scheduler.py, interaction.py, ai_engine.py (legacy)
 - platforms/: base.py + instagram, facebook, x_twitter, youtube, telegram, bluesky, threads
 - static/: index.html (whole UI), manifest.webmanifest, sw.js, icon.svg
@@ -37,6 +38,7 @@ Keep under 5KB. No code. Update by 2 lines after every change.
 - Capabilities per adapter drive validation and UI; platform logic only inside adapters
 - DOM built with h() + textContent, never innerHTML for data (legacy pages still use esc())
 - Gemini is the one allowed external API besides the platforms (CLAUDE.md)
+- Optional libs install at runtime via core/deps.py (builder pip has a 120s cap); never remove them from the product
 - Optional libs (instagrapi, google) degrade with a clear Arabic RuntimeError, never at import time
 - Business Instagram excluded from groups (needs public URL); stays in legacy quick schedule
 

@@ -1,6 +1,6 @@
 # session-handoff
 
-## State (v1.1.1)
+## State (v1.2.0)
 - Scheduler v2 complete on branch feature/scheduler-v2, merged to main: multi-platform groups, video, Gemini, rules, IG replies, 7 adapters, UI direction C with 24h dial.
 - 50 unit tests pass; UI self-test at /#test passes; swipe-to-schedule verified in headless Chromium (390x844).
 
@@ -14,7 +14,7 @@
 - instagrapi install on WebToApp Python 3.14 unverified.
 - OEM background killing: user must exempt the app from battery optimization.
 
-- v1.1.1: slim requirements after on-device pip timeout; full set in requirements-full.txt.
+- v1.2.0: core pip at build (~6.5MB), extras installed in background on device (core/deps.py), weekly auto-upgrade; requirements-full.txt for fast builds.
 
 ## Next step
 - Owner: package with web-to-app, add Telegram or Bluesky first, schedule a test post 5 min ahead, then add the rest.

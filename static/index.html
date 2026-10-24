@@ -16,7 +16,7 @@
 /* SECTION: CONFIG - كل ما يخص العلامة والألوان والمنصات هنا فقط */
 const CONFIG={
   brand:{name:"مدير حساباتي"},
-  version:"1.1.1",
+  version:"1.2.0",
   updateUrl:"https://raw.githubusercontent.com/Dev-saged/social-manager/main/version.json",
   palette:{
     "bg":["oklch(0.93 0.01 70)","oklch(0.12 0.01 60)"],
@@ -274,6 +274,7 @@ nav svg{transition:transform .3s var(--ease)}
     <span class="chip num" id="clock"></span>
   </header>
   <div class="bar off" id="bar-off" role="status"><svg class="i sm"><use href="#i-wifioff"/></svg><span id="bar-off-t"></span></div>
+  <div class="bar upd" id="bar-dep" role="status"><svg class="i sm"><use href="#i-refresh"/></svg><span id="bar-dep-t"></span></div>
   <div class="bar upd" id="bar-upd" role="status"><svg class="i sm"><use href="#i-bell"/></svg><span>إصدار جديد <b class="num" id="upd-v"></b> متاح</span><a id="upd-a" rel="noopener noreferrer" target="_blank">تفاصيل</a></div>
 
   <!-- ====== كتابة (الرئيسية) ====== -->
@@ -452,6 +453,12 @@ nav svg{transition:transform .3s var(--ease)}
       <input id="set-gemini" type="password" placeholder="لصق المفتاح هنا" autocomplete="off">
       <p class="hint" id="gemini-state"></p>
       <label for="set-gemini-model">النموذج (اختياري)</label><input id="set-gemini-model" dir="ltr" placeholder="gemini-3.8-flash">
+    </div>
+    <div class="card">
+      <h2>المكتبات الإضافية <small>Instagram الشخصي ويوتيوب</small></h2>
+      <p class="hint" id="deps-state" style="margin:0 0 10px"></p>
+      <div class="row2"><button class="btn small ghost" id="btn-deps-install"><svg class="i sm"><use href="#i-dl"/></svg>تثبيت الناقص</button><button class="btn small ghost" id="btn-deps-upgrade"><svg class="i sm"><use href="#i-refresh"/></svg>تحديث</button></div>
+      <p class="hint">تُثبَّت في الخلفية بصبر مهما كان الإنترنت بطيئاً، وتكمل وحدها بعد الانقطاع، وتُحدَّث تلقائياً كل أسبوع. بعد التحديث أعد فتح التطبيق ليعتمد النسخة الجديدة.</p>
     </div>
     <div class="card">
       <h2>المنشورات الفائتة</h2>
@@ -1231,7 +1238,7 @@ async function selfTest(){
   t("angle noon=180",()=>angleOf(new Date(2026,0,1,12,0))===180);
   t("whenFromAngle +6h",()=>{const n=Date.UTC(2026,0,1,0,0);const d=whenFromAngle(90,n);return Math.abs(d-n-216e5)<=3e5;});
   t("whenFromAngle min lead",()=>{const n=Date.now();return whenFromAngle(0.01,n)-n>=12e4;});
-  t("semver newer",()=>newer("1.2.0","1.1.9")&&!newer("1.1.1","1.1.1")&&newer("v2.0.0","1.9.9")&&!newer("1.0.9","1.1.1"));
+  t("semver newer",()=>newer("1.2.0","1.1.9")&&!newer("1.2.0","1.2.0")&&newer("v2.0.0","1.9.9")&&!newer("1.0.9","1.2.0"));
   t("splitList arabic comma",()=>splitList("مشروع، رابط\nسعر,").join("|")==="مشروع|رابط|سعر");
   t("human",()=>human(90*6e4)==="1:30"&&human(5*6e4)==="0:05"&&human(1500*60e3)==="1ي 1س");
   t("h() escapes",()=>{const e=h("p",null,"<img src=x onerror=alert(1)>");return e.children.length===0&&e.textContent.includes("<img");});
@@ -1243,6 +1250,28 @@ async function selfTest(){
   try{const r=await api("reply-rules/test",{text:"أبغى المشروع",keywords:["مشروع"],whole_word:false});t("matcher arabic",()=>r.matched===true);}catch(e){t("matcher",()=>{throw e;});}
   out.textContent=(bad?"FAILED "+bad:"ALL PASSED")+"\n\n"+log.join("\n")+"\n\n(أغلق بتغيير الـ hash)";
 }
+
+/* SECTION: DEPS - مكتبات إضافية تُثبَّت بالخلفية */
+const DEP_ACTIVE=["installing","retrying","waiting_network"];
+function depsText(d){
+  const f=(d.features||[]).join(" و");
+  if(d.state==="installing")return`${f?"جارٍ تثبيت مكتبات "+f:"جارٍ تحديث المكتبات الإضافية"} (المحاولة ${d.attempt})، قد يطول مع الإنترنت البطيء ويكمل وحده`;
+  if(d.state==="retrying")return"تعذّر التحميل بسبب بطء أو انقطاع، تُعاد المحاولة تلقائياً";
+  if(d.state==="waiting_network")return"بانتظار عودة الإنترنت لإكمال تثبيت المكتبات";
+  if(d.state==="failed")return"فشل التثبيت: "+(d.error||"سبب غير معروف").slice(-160);
+  return f?`ناقص: ${f}، اضغط تثبيت الناقص`:"كل المكتبات مثبتة";
+}
+let depPrev="";
+function renderDeps(){
+  const d=S.deps.v,on=DEP_ACTIVE.includes(d.state);
+  $("bar-dep-t").textContent=depsText(d);$("bar-dep").classList.toggle("on",on);
+  $("deps-state").textContent=depsText(d);
+  $("btn-deps-install").disabled=on||!(d.features||[]).length;$("btn-deps-upgrade").disabled=on;
+  if(depPrev&&DEP_ACTIVE.includes(depPrev)&&d.state==="done")toast("اكتمل تثبيت المكتبات");
+  depPrev=d.state;
+}
+async function depsPoll(){try{S.deps.v=await api("deps");}catch{}}
+async function depsStart(upgrade){try{await api("deps/install",{upgrade});await depsPoll();}catch(e){toast(e.message);}}
 
 /* SECTION: INIT */
 async function init(){
@@ -1276,15 +1305,18 @@ async function init(){
   $("rl-add-time").addEventListener("click",()=>{const v=$("rl-time").value;if(v&&!RF.times.includes(v)){RF.times=[...RF.times,v].sort();renderRuleTimes();}});
   $("rl-save").addEventListener("click",saveRule);
   $("rp-test-b").addEventListener("click",testReply);$("rp-save").addEventListener("click",saveReply);
+  $("btn-deps-install").addEventListener("click",()=>depsStart(false));$("btn-deps-upgrade").addEventListener("click",()=>depsStart(true));
   $("btn-export").addEventListener("click",exportBackup);$("btn-import").addEventListener("click",()=>$("bk-file").click());
   $("bk-file").addEventListener("change",e=>e.target.files[0]&&importBackup(e.target.files[0]));
   $("c-account").addEventListener("change",updateMediaControls);
   $("c-platform").addEventListener("change",updateContentAccounts);
+  S.deps=sig({state:"idle",missing:[],features:[]});
   setupFan();renderCredentialFields();
-  eff(renderDock);eff(renderFan);eff(renderDial);eff(renderMeta);eff(renderMediaChip);eff(renderPlan);eff(renderBar);
+  eff(renderDock);eff(renderFan);eff(renderDial);eff(renderMeta);eff(renderMediaChip);eff(renderPlan);eff(renderBar);eff(renderDeps);
   const clk=()=>{$("clock").textContent=fmtT(new Date());};clk();
   setInterval(()=>{clk();S.tick.v=Date.now();if(+S.when.v<Date.now()+6e4&&page==="home"&&!S.draft.v)S.when.v=defaultWhen();},1000*30);
-  await Promise.all([loadCaps(),loadAccounts(),loadGroups(),pulse()]);
+  await Promise.all([loadCaps(),loadAccounts(),loadGroups(),pulse(),depsPoll()]);
+  setInterval(()=>{if(DEP_ACTIVE.includes(S.deps.v.state))depsPoll();},6000);
   const dr=await kvGet("compose");
   if(dr){S.text.v=dr.text||"";$("c-text").value=S.text.v;autoGrow();S.over.v=dr.over||{};S.sel.v=(dr.sel||[]).filter(id=>{const a=accById(id);return a&&a.active&&!problem(a);});}
   loadDash();

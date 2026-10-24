@@ -3,6 +3,7 @@
 كل دقيقة يفحص: منشورات وصل وقت نشرها، وتعليقات موافق عليها انتهى تأخيرها الواقعي.
 التأخير العشوائي (config.RATE_LIMITS) يجعل الإيقاع بشرياً وليس آلياً ثابتاً.
 """
+import datetime
 import os
 import threading
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -22,10 +23,15 @@ def start():
     if _sched is not None:
         return _sched
     db.init_db()
-    _sched = BackgroundScheduler(daemon=True)
+    # UTC صريح: أندرويد بلا قاعدة مناطق زمنية، والمهام فترية لا تحتاج منطقة محلية
+    _sched = BackgroundScheduler(daemon=True, timezone=datetime.timezone.utc)
     _sched.add_job(tick, "interval", seconds=30, id="tick", max_instances=1, coalesce=True)
     _sched.start()
     return _sched
+
+
+def running():
+    return _sched is not None and _sched.running
 
 
 def stop():

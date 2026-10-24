@@ -68,3 +68,16 @@ class DepsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SchedulerTzTests(unittest.TestCase):
+    def test_scheduler_uses_utc_without_tz_database(self):
+        import datetime
+        from core import scheduler
+        scheduler.stop()
+        try:
+            s = scheduler.start()
+            self.assertEqual(s.timezone, datetime.timezone.utc)
+            self.assertTrue(scheduler.running())
+        finally:
+            scheduler.stop()

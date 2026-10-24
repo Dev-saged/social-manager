@@ -1,6 +1,6 @@
 # session-handoff
 
-## State (v1.2.0)
+## State (v1.2.1)
 - Scheduler v2 complete on branch feature/scheduler-v2, merged to main: multi-platform groups, video, Gemini, rules, IG replies, 7 adapters, UI direction C with 24h dial.
 - 50 unit tests pass; UI self-test at /#test passes; swipe-to-schedule verified in headless Chromium (390x844).
 

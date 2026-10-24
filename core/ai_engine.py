@@ -1,28 +1,31 @@
 """محرك الذكاء: تحليل البوستات وتوليد التعليقات والمحتوى عبر Thaura API."""
 import base64
-from openai import OpenAI
+import requests
 import config
 from core import database as db
 
-_client = None
+_client = None  # المفتاح المخزَّن مؤقتاً، يُصفَّر من الإعدادات عند تغييره
 
 
-def _client_():
+def _key():
     global _client
     if _client is None:
         api_key = config.THAURA_API_KEY or db.get_api_key("")
         if not api_key:
             raise RuntimeError("لا يوجد مفتاح Thaura API. أضفه في الإعدادات.")
-        _client = OpenAI(api_key=api_key, base_url=config.THAURA_BASE_URL)
+        _client = api_key
     return _client
 
 
 def _chat(messages, json_mode=False, max_tokens=800):
-    kwargs = dict(model=config.THAURA_MODEL, messages=messages, max_tokens=max_tokens)
+    body = {"model": config.THAURA_MODEL, "messages": messages, "max_tokens": max_tokens}
     if json_mode:
-        kwargs["response_format"] = {"type": "json_object"}
-    resp = _client_().chat.completions.create(**kwargs)
-    return resp.choices[0].message.content
+        body["response_format"] = {"type": "json_object"}
+    r = requests.post(config.THAURA_BASE_URL + "/chat/completions", json=body, timeout=60,
+                      headers={"Authorization": "Bearer " + _key()})
+    if not r.ok:
+        raise RuntimeError(f"Thaura {r.status_code}: {r.text[:200]}")
+    return r.json()["choices"][0]["message"]["content"]
 
 
 def analyze_post(post_text, image_b64=None):

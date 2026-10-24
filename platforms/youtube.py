@@ -21,9 +21,12 @@ class YouTubePlatform(BasePlatform):
 
     def _api(self):
         if self._youtube is None:
-            from google_auth_oauthlib.flow import InstalledAppFlow
-            from google.auth.transport.requests import Request
-            from googleapiclient.discovery import build
+            try:
+                from google_auth_oauthlib.flow import InstalledAppFlow
+                from google.auth.transport.requests import Request
+                from googleapiclient.discovery import build
+            except ImportError:
+                raise RuntimeError("مكتبات Google غير مثبتة على هذا الجهاز، يوتيوب معطّل")
             import config
             secrets = self.creds.get("client_secrets_path") or os.path.join(config.DATA_DIR, "client_secrets.json")
             token_path = os.path.join(config.DATA_DIR, "youtube_token.json")
@@ -44,9 +47,12 @@ class YouTubePlatform(BasePlatform):
 
     def publish(self, text, media_path=None):
         """النشر على يوتيوب = رفع فيديو. text يحتوي عنوان ثم سطر جديد ثم وصف."""
-        from googleapiclient.http import MediaFileUpload
         if not media_path:
             raise ValueError("يوتيوب: النشر يتطلب ملف فيديو")
+        try:
+            from googleapiclient.http import MediaFileUpload
+        except ImportError:
+            raise RuntimeError("مكتبات Google غير مثبتة على هذا الجهاز، يوتيوب معطّل")
         lines = text.split("\n", 1)
         title, desc = (lines + [""])[0], (lines[1] if len(lines) > 1 else "")
         body = {"snippet": {"title": title[:100], "description": desc, "categoryId": "22"},

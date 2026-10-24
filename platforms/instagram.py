@@ -45,7 +45,10 @@ class InstagramPlatform(BasePlatform):
         """يعيد استخدام الجلسة المحفوظة فلا يُسجَّل الدخول من جديد في كل مرة."""
         if self._cl is None:
             import os
-            from instagrapi import Client
+            try:
+                from instagrapi import Client
+            except ImportError:
+                raise RuntimeError("مكتبة instagrapi غير مثبتة على هذا الجهاز، Instagram الشخصي معطّل")
             cl = Client()
             path = self._session_path()
             if os.path.exists(path):

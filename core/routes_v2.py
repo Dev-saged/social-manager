@@ -106,6 +106,19 @@ def health():
                     "time": time.time(), "targets": db.target_counts()})
 
 
+@bp.get("/api/deps")
+def deps_status():
+    from core import deps
+    return jsonify(deps.status())
+
+
+@bp.post("/api/deps/install")
+def deps_install():
+    from core import deps
+    upgrade = bool((request.get_json(silent=True) or {}).get("upgrade"))
+    return jsonify({"started": deps.start(upgrade=upgrade)})
+
+
 @bp.get("/api/platforms")
 def platform_caps():
     return jsonify(platforms.capabilities())

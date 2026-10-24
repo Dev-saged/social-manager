@@ -13,6 +13,9 @@ from core.scheduler import start
 
 def main():
     init_db()
+    from core import deps
+    deps.activate()
+    deps.start_background()  # مكتبات Instagram/يوتيوب تُثبَّت بصبر بعد الإقلاع
     start()  # مجدول الخلفية: نشر المنشورات + إطلاق التعليقات الموافق عليها
     from core.server import app
     # يبقى محلياً؛ يتيح WebToApp تمرير منفذ مختلف عبر البيئة.

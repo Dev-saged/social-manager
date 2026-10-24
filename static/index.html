@@ -16,7 +16,7 @@
 /* SECTION: CONFIG - كل ما يخص العلامة والألوان والمنصات هنا فقط */
 const CONFIG={
   brand:{name:"مدير حساباتي"},
-  version:"1.2.0",
+  version:"1.2.1",
   updateUrl:"https://raw.githubusercontent.com/Dev-saged/social-manager/main/version.json",
   palette:{
     "bg":["oklch(0.93 0.01 70)","oklch(0.12 0.01 60)"],
@@ -608,7 +608,7 @@ function closeSheet(now){const s=openSh;if(!s)return;openSh=null;$("scrim").clas
 /* SECTION: STATE */
 const defaultWhen=()=>{const d=new Date(Date.now()+36e5);d.setMinutes(Math.ceil(d.getMinutes()/5)*5,0,0);return d;};
 const S={caps:sig({}),accs:sig([]),groups:sig([]),text:sig(""),media:sig(null),sel:sig([]),over:sig({}),cur:sig(0),
-  when:sig(defaultWhen()),draft:sig(false),server:sig(true),online:sig(true),counts:sig({}),tick:sig(Date.now()),day:sig(new Date()),aiMeta:null};
+  when:sig(defaultWhen()),draft:sig(false),server:sig(true),online:sig(true),counts:sig({}),sched:sig(true),tick:sig(Date.now()),day:sig(new Date()),aiMeta:null};
 const accById=id=>S.accs.v.find(a=>a.id===id);
 const plat=a=>CONFIG.platforms[a.platform]||{label:a.platform,mono:a.platform.slice(0,2).toUpperCase()};
 const capOf=a=>S.caps.v[a.platform]||{text:true,image:true,video:true,max_len:1000};
@@ -861,12 +861,12 @@ async function loadGroups(){
 }
 async function loadCaps(){try{S.caps.v=await api("platforms");}catch{}}
 async function pulse(){
-  try{const d=await api("health");S.server.v=true;S.online.v=!!d.online;S.counts.v=d.targets||{};}
+  try{const d=await api("health");S.server.v=true;S.online.v=!!d.online;S.sched.v=d.scheduler!==false;S.counts.v=d.targets||{};}
   catch{S.server.v=false;}
 }
 function renderBar(){
   const b=$("bar-off"),w=S.counts.v.waiting_network||0;
-  const msg=!S.server.v?"الخادم المحلي لا يستجيب، أعد فتح التطبيق":!S.online.v?"لا يوجد إنترنت"+(w?` · ${w} بانتظار الشبكة وستُنشر تلقائياً عند عودتها`:" · ما تجدوله يُنشر تلقائياً عند عودة الشبكة"):"";
+  const msg=!S.server.v?"الخادم المحلي لا يستجيب، أعد فتح التطبيق":!S.sched.v?"المجدول متوقف، لن يُنشر شيء في موعده، أعد فتح التطبيق":!S.online.v?"لا يوجد إنترنت"+(w?` · ${w} بانتظار الشبكة وستُنشر تلقائياً عند عودتها`:" · ما تجدوله يُنشر تلقائياً عند عودة الشبكة"):"";
   $("bar-off-t").textContent=msg;b.classList.toggle("on",!!msg);
 }
 async function checkUpdate(){
@@ -1238,7 +1238,7 @@ async function selfTest(){
   t("angle noon=180",()=>angleOf(new Date(2026,0,1,12,0))===180);
   t("whenFromAngle +6h",()=>{const n=Date.UTC(2026,0,1,0,0);const d=whenFromAngle(90,n);return Math.abs(d-n-216e5)<=3e5;});
   t("whenFromAngle min lead",()=>{const n=Date.now();return whenFromAngle(0.01,n)-n>=12e4;});
-  t("semver newer",()=>newer("1.2.0","1.1.9")&&!newer("1.2.0","1.2.0")&&newer("v2.0.0","1.9.9")&&!newer("1.0.9","1.2.0"));
+  t("semver newer",()=>newer("1.2.1","1.1.9")&&!newer("1.2.1","1.2.1")&&newer("v2.0.0","1.9.9")&&!newer("1.0.9","1.2.1"));
   t("splitList arabic comma",()=>splitList("مشروع، رابط\nسعر,").join("|")==="مشروع|رابط|سعر");
   t("human",()=>human(90*6e4)==="1:30"&&human(5*6e4)==="0:05"&&human(1500*60e3)==="1ي 1س");
   t("h() escapes",()=>{const e=h("p",null,"<img src=x onerror=alert(1)>");return e.children.length===0&&e.textContent.includes("<img");});

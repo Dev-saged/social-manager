@@ -102,7 +102,8 @@ def validate_targets(text, media_id, account_ids, overrides):
 
 @bp.get("/api/health")
 def health():
-    return jsonify({"ok": True, "version": config.APP_VERSION, "online": net.online(),
+    from core import scheduler
+    return jsonify({"ok": True, "version": config.APP_VERSION, "online": net.online(), "scheduler": scheduler.running(),
                     "time": time.time(), "targets": db.target_counts()})
 
 

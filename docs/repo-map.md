@@ -43,6 +43,7 @@ Keep under 5KB. No code. Update by 2 lines after every change.
 - Business Instagram excluded from groups (needs public URL); stays in legacy quick schedule
 
 ## Solved bugs (never reintroduce)
+- Android server start timeout: APScheduler default tz needs tzlocal/zoneinfo and Android has no tz database -> scheduler uses datetime.timezone.utc; tzdata in requirements; app.py never lets deps/scheduler errors block Flask
 - On-device pip timed out (120s cap, ~240KB/s): requirements.txt must stay light (~7MB); no openai pkg (ai_engine uses requests); instagrapi/google only in requirements-full.txt and imported lazily
 - Backoff used stale attempts (3h wait) -> use target["attempts"] before increment
 - Day strip duplicated on DST change -> build dates with new Date(y,m,d+i), never +864e5

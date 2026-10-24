@@ -13,10 +13,17 @@ from core.scheduler import start
 
 def main():
     init_db()
-    from core import deps
-    deps.activate()
-    deps.start_background()  # مكتبات Instagram/يوتيوب تُثبَّت بصبر بعد الإقلاع
-    start()  # مجدول الخلفية: نشر المنشورات + إطلاق التعليقات الموافق عليها
+    # أي فشل هنا لا يمنع الخادم من الإقلاع، فتظهر الواجهة وتعرض سبب التوقف
+    try:
+        from core import deps
+        deps.activate()
+        deps.start_background()  # مكتبات Instagram/يوتيوب تُثبَّت بصبر بعد الإقلاع
+    except Exception as e:
+        print("deps failed:", repr(e), file=sys.stderr)
+    try:
+        start()  # مجدول الخلفية: نشر المنشورات + إطلاق التعليقات الموافق عليها
+    except Exception as e:
+        print("scheduler failed:", repr(e), file=sys.stderr)
     from core.server import app
     # يبقى محلياً؛ يتيح WebToApp تمرير منفذ مختلف عبر البيئة.
     port = int(os.getenv("PORT", "8080"))

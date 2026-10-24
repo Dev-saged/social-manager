@@ -37,9 +37,11 @@ Keep under 5KB. No code. Update by 2 lines after every change.
 - Capabilities per adapter drive validation and UI; platform logic only inside adapters
 - DOM built with h() + textContent, never innerHTML for data (legacy pages still use esc())
 - Gemini is the one allowed external API besides the platforms (CLAUDE.md)
+- Optional libs (instagrapi, google) degrade with a clear Arabic RuntimeError, never at import time
 - Business Instagram excluded from groups (needs public URL); stays in legacy quick schedule
 
 ## Solved bugs (never reintroduce)
+- On-device pip timed out (120s cap, ~240KB/s): requirements.txt must stay light (~7MB); no openai pkg (ai_engine uses requests); instagrapi/google only in requirements-full.txt and imported lazily
 - Backoff used stale attempts (3h wait) -> use target["attempts"] before increment
 - Day strip duplicated on DST change -> build dates with new Date(y,m,d+i), never +864e5
 - Popover sheets stuck hidden without popover support -> attr set from JS only if supported

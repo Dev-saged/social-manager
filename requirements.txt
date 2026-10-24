@@ -1,10 +1,6 @@
 flask>=3.0
-openai>=1.30
-python-dotenv
 apscheduler>=3.10
 cryptography
 requests
-instagrapi
+python-dotenv
 tweepy
-google-api-python-client
-google-auth-oauthlib

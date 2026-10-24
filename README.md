@@ -98,7 +98,7 @@ python -m unittest discover -s tests -v
 ## للمطوّر
 
 - `CONFIG` في أعلى `static/index.html`: الاسم، لوحة OKLCH (فاتح/داكن)، الخطوط، المنصات، الحالات، الترخيص، رابط التحديث. عميل جديد = تعديل CONFIG فقط.
-- محوّل منصة جديد: صنف في `platforms/` يرث `base.Platform` ويعرّف `capabilities` و`publish_*`، ثم يُسجَّل في `platforms/__init__.py`. لا يُعدَّل أي كود عام.
+- محوّل منصة جديد: صنف في `platforms/` يرث `base.BasePlatform` ويعرّف `capabilities` و`publish_*`، ثم يُسجَّل في `platforms/__init__.py`. لا يُعدَّل أي كود عام.
 - Hooks اختيارية للردود: `recent_comments`، `reply_to_comment`، `send_dm`.
 - قواعد التحرير والبنية في `CLAUDE.md`، وخريطة الملفات في `docs/repo-map.md`.
 

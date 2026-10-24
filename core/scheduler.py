@@ -28,7 +28,8 @@ def start():
     db.init_db()
     # UTC صريح: أندرويد بلا قاعدة مناطق زمنية، والمهام فترية لا تحتاج منطقة محلية
     _sched = BackgroundScheduler(daemon=True, timezone=datetime.timezone.utc)
-    _sched.add_job(tick, "interval", seconds=30, id="tick", max_instances=1, coalesce=True)
+    _sched.add_job(tick, "interval", seconds=30, id="tick", max_instances=1, coalesce=True,
+                   next_run_time=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=3))
     _sched.start()
     db.set_setting("sched_started_at", str(time.time()))
     return _sched

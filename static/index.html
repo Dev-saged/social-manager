@@ -5,18 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#14110d">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://raw.githubusercontent.com; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://raw.githubusercontent.com; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600;700&family=Sora:wght@500;600;700&display=swap">
+<link rel="preload" href="/fonts/kufi-arabic.woff2" as="font" type="font/woff2" crossorigin>
 <title>مدير حساباتي</title>
 <script>
 /* SECTION: CONFIG - كل ما يخص العلامة والألوان والمنصات هنا فقط */
 const CONFIG={
   brand:{name:"مدير حساباتي"},
-  version:"1.2.1",
+  version:"1.3.0",
   updateUrl:"https://raw.githubusercontent.com/Dev-saged/social-manager/main/version.json",
   palette:{
     "bg":["oklch(0.93 0.01 70)","oklch(0.12 0.01 60)"],
@@ -36,15 +34,28 @@ const CONFIG={
     instagram:{label:"انستغرام",mono:"IG"},facebook:{label:"فيسبوك",mono:"FB"},x:{label:"X",mono:"X"},
     youtube:{label:"يوتيوب",mono:"YT"},telegram:{label:"تلغرام",mono:"TG"},bluesky:{label:"Bluesky",mono:"BS"},threads:{label:"Threads",mono:"TH"}
   },
-  states:{draft:"مسودة",scheduled:"مجدول",publishing:"جارٍ النشر",waiting:"بانتظار الشبكة",done:"تم النشر",partial:"نُشر جزئياً",failed:"فشل",cancelled:"ملغي"},
-  targetStates:{pending:"بالانتظار",publishing:"جارٍ النشر",published:"نُشر",failed:"فشل",waiting_network:"بانتظار الشبكة",missed:"فات الموعد",cancelled:"ملغي"},
+  states:{draft:"مسودة",scheduled:"مجدول",publishing:"جارٍ النشر",waiting:"بانتظار الشبكة",done:"تم النشر",partial:"نُشر جزئياً",failed:"فشل",cancelled:"ملغي",needs_you:"بانتظارك"},
+  targetStates:{pending:"بالانتظار",publishing:"جارٍ النشر",published:"نُشر",failed:"فشل",waiting_network:"إعادة محاولة",missed:"فات الموعد",cancelled:"ملغي",needs_you:"اضغط للنشر"},
+  accTypes:{instagram:[["official","رسمي (موصى به)"],["personal","شخصي: كلمة مرور أو جلسة"],["business","Business قديم"]],facebook:[["share","حسابي الشخصي (مشاركة)"],["personal","صفحة (API)"]]},
   license:{expires:null}
 };
-(function(){const r=document.documentElement.style;
-  for(const[k,v]of Object.entries(CONFIG.palette))r.setProperty("--"+k,"light-dark("+v[0]+","+v[1]+")");
-  r.setProperty("--f-body",CONFIG.fonts.body);r.setProperty("--f-num",CONFIG.fonts.num);})();
+/* الألوان: light-dark() حين يدعمها WebView، وإلا تُحسب القيمة للوضع الحالي، وتُحوَّل OKLCH إلى RGB في الأجهزة القديمة */
+function oklchRgb(str){const m=String(str).match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/);if(!m)return str;
+  const L=+m[1],C=+m[2],h=+m[3]*Math.PI/180,a=C*Math.cos(h),b=C*Math.sin(h);
+  const l=(L+.3963377774*a+.2158037573*b)**3,mm=(L-.1055613458*a-.0638541728*b)**3,s=(L-.0894841775*a-1.291485548*b)**3;
+  const f=x=>{x=Math.max(0,Math.min(1,x));return Math.round((x<=.0031308?12.92*x:1.055*x**(1/2.4)-.055)*255);};
+  return `rgb(${f(4.0767416621*l-3.3077115913*mm+.2309699292*s)},${f(-1.2684380046*l+2.6097574011*mm-.3413193965*s)},${f(-.0041960863*l-.7034186147*mm+1.707614701*s)})`;}
+function applyPalette(){const r=document.documentElement.style,sup=k=>window.CSS&&CSS.supports&&CSS.supports("color",k);
+  const ld=sup("light-dark(#000,#fff)"),ok=sup("oklch(0.5 0.1 60)"),dark=matchMedia("(prefers-color-scheme: dark)").matches;
+  for(const[k,v]of Object.entries(CONFIG.palette)){const c=ok?v:v.map(oklchRgb);r.setProperty("--"+k,ld?"light-dark("+c[0]+","+c[1]+")":c[dark?1:0]);}
+  document.documentElement.classList.toggle("legacy-css",!sup("color-mix(in srgb,red 50%,blue)"));}
+applyPalette();try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",applyPalette);}catch{}
+document.documentElement.style.setProperty("--f-body",CONFIG.fonts.body);document.documentElement.style.setProperty("--f-num",CONFIG.fonts.num);
 </script>
 <style>
+@font-face{font-family:"Noto Kufi Arabic";font-style:normal;font-display:swap;font-weight:100 900;src:url(/fonts/kufi-arabic.woff2) format("woff2");unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0897-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC}
+@font-face{font-family:"Noto Kufi Arabic";font-style:normal;font-display:swap;font-weight:100 900;src:url(/fonts/kufi-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Sora";font-style:normal;font-display:swap;font-weight:100 800;src:url(/fonts/sora-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 :root{color-scheme:dark light;--r:18px;--ease:cubic-bezier(.2,.9,.2,1)}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
@@ -173,6 +184,7 @@ textarea{resize:vertical;min-height:70px;line-height:1.7}
 .tg{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .tg span{display:inline-flex;align-items:center;gap:5px;font:600 10.5px var(--f-num);padding:3px 8px;border-radius:99px;background:var(--surface-0);border:1px solid var(--line)}
 .tg span::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--mute)}
+.tg .needs_you::before{background:var(--accent)}.st.needs_you{color:var(--accent)}
 .tg .published::before{background:var(--ok)}.tg .failed::before,.tg .missed::before{background:var(--danger)}.tg .waiting_network::before{background:var(--accent)}.tg .pending::before,.tg .publishing::before{background:var(--primary)}
 
 /* قائمة المزيد */
@@ -238,6 +250,74 @@ nav svg{transition:transform .3s var(--ease)}
 .sheet textarea{min-height:110px;resize:none}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mt{margin-top:12px}
+/* v1.3: حيوية النموذج C + الصحة + الأدلة */
+.pv:not(.empty-card){animation:fanin .85s var(--ease) both;animation-delay:calc(var(--k,0) * 90ms)}
+@keyframes fanin{from{opacity:0;translate:0 28px;scale:.88}}
+#sweep{transform-origin:170px 170px;animation:spin 30s linear infinite}
+#sweep line{stroke:var(--primary);stroke-width:1.5;opacity:.5}
+@keyframes spin{to{transform:rotate(360deg)}}
+.halo{fill:none;stroke-width:2;opacity:.5;transform-box:fill-box;transform-origin:center;animation:halo 2.4s ease-out infinite}
+.halo.s-scheduled{stroke:var(--primary)}.halo.s-needs_you{stroke:var(--accent)}
+@keyframes halo{from{scale:1;opacity:.6}to{scale:2.2;opacity:0}}
+.dot.s-needs_you{fill:var(--accent)}
+.next b{min-width:5.5ch;text-align:center}
+.upnext{margin-top:14px;border-radius:26px 26px 18px 18px;background:var(--surface-1);border:1px solid var(--line);padding:8px 16px 6px}
+.upnext::before{content:"";display:block;width:40px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 10px}
+.upnext h2{font-size:14px;margin-bottom:4px}
+.q{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line);font-size:13px;width:100%;text-align:start;min-height:52px}
+.q .t{font:600 13px var(--f-num);color:var(--primary);min-width:50px}
+.q small{color:var(--mute);display:block;font-size:11.5px}
+.q span:nth-child(2){flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q i{width:9px;height:9px;border-radius:50%;flex:none;background:var(--mute)}
+.q i.scheduled,.q i.publishing{background:var(--primary)}.q i.done{background:var(--ok)}.q i.needs_you,.q i.waiting{background:var(--accent)}.q i.failed,.q i.partial{background:var(--danger)}
+.hb{width:8px;height:8px;border-radius:50%;background:var(--mute);flex:none}
+.hb.ok{background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:beat 2s ease-out infinite}.hb.late{background:var(--accent)}.hb.dead{background:var(--danger)}
+@keyframes beat{0%{box-shadow:0 0 0 0 color-mix(in oklch,var(--ok) 70%,transparent)}80%,100%{box-shadow:0 0 0 7px transparent}}
+.chip.btnlike{cursor:pointer;min-height:36px}
+.vital{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:center}
+.vital svg{width:120px;height:120px}
+.vital .rg{fill:none;stroke:var(--line);stroke-width:8}
+.vital .rv{fill:none;stroke-width:8;stroke-linecap:round;transform:rotate(-90deg);transform-origin:60px 60px;transition:stroke-dashoffset .9s var(--ease)}
+.vital.ok .rv,.vital.ok .ecg{stroke:var(--ok)}.vital.late .rv,.vital.late .ecg{stroke:var(--accent)}.vital.dead .rv,.vital.dead .ecg{stroke:var(--danger)}
+.ecg{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:140;animation:ecg 2.2s linear infinite}
+.vital.dead .ecg{animation:none;stroke-dasharray:none}
+@keyframes ecg{from{stroke-dashoffset:280}to{stroke-dashoffset:0}}
+.vital b{display:block;font-size:17px}.vital p{font-size:12px;color:var(--mute);line-height:1.7}
+.spark{width:100%;height:64px;display:block;margin-top:6px}
+.spark path.l{fill:none;stroke:var(--primary);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.spark path.a{fill:color-mix(in oklch,var(--primary) 18%,transparent);stroke:none}
+.lib{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.lib:last-child{border:0}
+.lib .nm{flex:1;min-width:0}.lib .nm small{display:block;color:var(--mute);font:500 11px var(--f-num);direction:ltr;text-align:start;overflow-wrap:anywhere}
+.st-ic{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;flex:none}
+.st-ic.ok{background:color-mix(in oklch,var(--ok) 18%,transparent);color:var(--ok)}
+.st-ic.bad{background:color-mix(in oklch,var(--danger) 18%,transparent);color:var(--danger)}
+.st-ic.idle{background:var(--surface-0);color:var(--mute)}
+.st-ic svg{width:16px;height:16px;stroke-width:2.4}
+.steps{list-style:none;counter-reset:st;display:grid;gap:10px;margin:6px 0 12px}
+.steps li{counter-increment:st;display:grid;grid-template-columns:30px 1fr;gap:10px;font-size:13px;line-height:1.8;align-items:start}
+.steps li::before{content:counter(st);width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--primary);color:var(--on-primary);font:700 12px var(--f-num)}
+.steps code,.mono{font:500 12px var(--f-num);direction:ltr;unicode-bidi:isolate;background:var(--surface-0);border:1px solid var(--line);border-radius:6px;padding:0 5px}
+.links{display:grid;gap:8px}
+.link{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;border-radius:14px;border:1px solid var(--primary);color:var(--primary);text-decoration:none;font-size:13px;font-weight:600}
+.link svg{margin-inline-start:auto}
+.guide-btn{display:inline-flex;align-items:center;gap:6px;color:var(--primary);font-size:12.5px;min-height:44px;padding:0 4px}
+.res{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:16px;background:var(--surface-0);border:1px solid var(--line)}
+.res b{display:block;font-size:14px}.res p{font-size:12.5px;line-height:1.7;color:var(--mute);overflow-wrap:anywhere}
+.res .hintx{color:var(--ink);margin-top:4px}
+.ai-prev{width:100%;max-height:320px;object-fit:contain;border-radius:16px;background:var(--surface-0);border:1px solid var(--line);display:block}
+.prov{font:600 10.5px var(--f-num);color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:2px 8px}
+.codein{font:600 22px var(--f-num);letter-spacing:.3em;text-align:center;direction:ltr}
+details.card summary{cursor:pointer;font-weight:700;font-size:14px;min-height:28px;list-style:none;display:flex;align-items:center;gap:8px}
+details.card summary::-webkit-details-marker{display:none}
+details.card[open] summary{margin-bottom:8px}
+.oem{font-size:12.5px;line-height:1.9;color:var(--mute)}.oem b{color:var(--ink)}
+.legacy-css .bgfx{background:radial-gradient(60% 40% at 85% 6%,var(--primary),transparent),radial-gradient(50% 35% at 8% 38%,var(--accent),transparent);opacity:.25}
+.legacy-css .pv{background:var(--surface-1)}
+.legacy-css nav{background:var(--bg)}
+.legacy-css .tool.ai,.legacy-css .bar.off,.legacy-css .bar.upd{background:var(--surface-1)}
+.legacy-css .scrim{background:rgba(0,0,0,.55)}
+.legacy-css .st-ic.ok,.legacy-css .st-ic.bad{background:var(--surface-0)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -265,13 +345,24 @@ nav svg{transition:transform .3s var(--ease)}
 <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></symbol>
 <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0112 0v6l2 2H4z"/><path d="M10 21h4"/></symbol>
 <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></symbol>
+<symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M3 17l5-4 4 3 3-2 6 4"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="M16 10l5-3v10l-5-3"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/></symbol>
+<symbol id="i-battery" viewBox="0 0 24 24"><rect x="3" y="7" width="16" height="10" rx="2.5"/><path d="M21 10.5v3M7 10v4M11 10v4"/></symbol>
 </defs></svg>
 <div class="bgfx"></div>
 <div class="wrap">
   <header class="head" id="head">
     <button class="back" id="back" aria-label="رجوع"><svg class="i"><use href="#i-chev"/></svg></button>
     <h1 id="title">مدير حساباتي</h1>
-    <span class="chip num" id="clock"></span>
+    <button class="chip w btnlike" id="sched-chip" aria-label="المنشورات المجدولة" style="display:none"><svg class="i sm"><use href="#i-clock"/></svg><span class="num" id="sched-n">0</span> مجدولة</button>
+    <button class="chip num btnlike" id="clock-chip" aria-label="نبض التطبيق"><span class="hb" id="hb-dot"></span><span id="clock"></span></button>
   </header>
   <div class="bar off" id="bar-off" role="status"><svg class="i sm"><use href="#i-wifioff"/></svg><span id="bar-off-t"></span></div>
   <div class="bar upd" id="bar-dep" role="status"><svg class="i sm"><use href="#i-refresh"/></svg><span id="bar-dep-t"></span></div>
@@ -294,6 +385,7 @@ nav svg{transition:transform .3s var(--ease)}
         <circle class="ring-bg" cx="170" cy="170" r="140"/>
         <circle class="ring-bg" cx="170" cy="170" r="100" stroke-dasharray="2 6"/>
         <circle id="ring" cx="170" cy="170" r="140"/>
+        <g id="sweep" aria-hidden="true"><line x1="170" y1="170" x2="170" y2="34"/></g>
         <g id="dial-g"></g>
         <path class="caret" d="M170 22l-6-10h12z"/>
       </svg>
@@ -306,6 +398,7 @@ nav svg{transition:transform .3s var(--ease)}
     <div class="dock" id="dock" role="group" aria-label="المنصات"></div>
     <button class="when" id="btn-when"><svg class="i"><use href="#i-clock"/></svg><span><b id="when-v" class="num"></b><small id="when-s">موعد النشر · اضغط للتعديل أو اسحب على القرص</small></span><svg class="i sm push" style="transform:scaleX(-1)"><use href="#i-chev"/></svg></button>
     <button class="btn go" id="btn-go"><svg class="i sm"><use href="#i-up"/></svg><span id="go-t">جدولة</span></button>
+    <div class="upnext" id="upnext"><h2>القادم</h2><div id="up-list"></div></div>
   </section>
 
   <!-- ====== الجدول ====== -->
@@ -331,6 +424,7 @@ nav svg{transition:transform .3s var(--ease)}
   <!-- ====== المزيد ====== -->
   <section class="page" id="page-more">
     <div class="menu">
+      <button class="mi" data-go="health"><svg class="i"><use href="#i-pulse"/></svg><span>الصحة والموثوقية<small>نبض التطبيق، الحسابات، المكتبات، التأخير</small></span><svg class="i sm"><use href="#i-chev"/></svg></button>
       <button class="mi" data-go="dash"><svg class="i"><use href="#i-pulse"/></svg><span>النشاط وتفاعل الأصدقاء<small>محرك التعليقات المقترحة وآخر العمليات</small></span><svg class="i sm"><use href="#i-chev"/></svg></button>
       <button class="mi" data-go="queue"><svg class="i"><use href="#i-chat"/></svg><span>طابور الموافقة<small>لا يُنشر تعليق دون موافقتك</small></span><svg class="i sm"><use href="#i-chev"/></svg></button>
       <button class="mi" data-go="content"><svg class="i"><use href="#i-spark"/></svg><span>المولّد السريع<small>نص واحد لحساب واحد (الوضع القديم)</small></span><svg class="i sm"><use href="#i-chev"/></svg></button>
@@ -339,8 +433,22 @@ nav svg{transition:transform .3s var(--ease)}
     <p class="ver" id="ver"></p>
   </section>
 
+  <!-- ====== الصحة والموثوقية ====== -->
+  <section class="page" id="page-health">
+    <div class="card"><div class="vital idle" id="vital">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rg" cx="60" cy="60" r="50"/><circle class="rv" id="vital-ring" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"/><path class="ecg" d="M18 62h22l6-16 9 30 8-24 5 10h34"/></svg>
+      <div><b id="vital-t">جارٍ الفحص...</b><p id="vital-p"></p></div></div>
+      <div class="row2 mt"><button class="btn small ghost" id="btn-reconcile"><svg class="i sm"><use href="#i-refresh"/></svg>استدراك الآن</button><button class="btn small ghost" id="btn-battery"><svg class="i sm"><use href="#i-battery"/></svg>إبقاؤه حياً</button></div>
+    </div>
+    <div class="card"><h2>دقة المواعيد <small>آخر 30 نشراً</small></h2><div id="delay-box"></div></div>
+    <div class="card"><h2>صحة الحسابات</h2><div id="acch-list"></div><button class="btn small ghost mt" id="btn-check-all"><svg class="i sm"><use href="#i-check"/></svg>فحص الكل</button><p class="hint">حسابات Instagram الشخصية تُفحص من بطاقتها فقط حتى لا تكثر تنبيهات الدخول.</p></div>
+    <div class="card"><h2>المكتبات <small>فحص فعلي بالاستيراد</small></h2><div id="libs-list"></div><button class="btn small ghost mt" id="btn-libs"><svg class="i sm"><use href="#i-refresh"/></svg>فحص الكل</button></div>
+    <details class="card" id="keepalive"><summary><svg class="i sm"><use href="#i-battery"/></svg>إبقاء التطبيق حياً في الخلفية</summary>
+      <div class="oem" id="oem-box"></div></details>
+  </section>
+
   <!-- ====== النشاط (قديم) ====== -->
-  <section class="page on" id="page-dash">
+  <section class="page" id="page-dash">
     <div class="stats" style="margin-bottom:14px">
       <div class="stat"><b id="s-accounts">0</b><span>حسابات فعالة</span></div>
       <div class="stat"><b id="s-pending">0</b><span>بانتظار موافقتك</span></div>
@@ -364,9 +472,10 @@ nav svg{transition:transform .3s var(--ease)}
     <div class="card">
       <h2>إضافة حساب</h2>
       <div class="chips" id="platform-chips" style="margin-bottom:4px"></div>
+      <button class="guide-btn" id="btn-guide"><svg class="i sm"><use href="#i-key"/></svg><span id="guide-l">كيف أحصل على بيانات الدخول؟</span></button>
       <label>اسم المستخدم</label><input id="acc-user" placeholder="مثال: my_account">
       <div id="account-type-control"><label>نوع الحساب</label>
-      <div class="chips">
+      <div class="chips" id="type-chips">
         <button class="chip-btn on" id="type-personal" onclick="setAccType('personal')">شخصي</button>
         <button class="chip-btn" id="type-business" onclick="setAccType('business')">بيزنس</button>
       </div></div>
@@ -435,9 +544,15 @@ nav svg{transition:transform .3s var(--ease)}
       <textarea id="set-persona" placeholder="مثال: أسلوب راقي وواثق وقصير، عربي بلمسة عامية خفيفة..."></textarea>
     </div>
     <div class="card">
-      <h2>مفتاح Thaura API <small>تعليقات الأصدقاء</small></h2>
-      <input id="set-key" type="password" placeholder="لصق المفتاح هنا">
-      <p style="font-size:11px;color:var(--dim);margin-top:8px" id="key-state"></p>
+      <h2>مفتاح Oxion <small>المزوّد الأساسي للكتابة والتعليقات</small></h2>
+      <input id="set-key" type="password" placeholder="cc_..." autocomplete="off" dir="ltr">
+      <p class="hint" id="key-state"></p>
+      <button class="guide-btn" data-guide="oxion"><svg class="i sm"><use href="#i-key"/></svg>كيف أحصل على المفتاح؟</button>
+      <label for="set-order">ترتيب المزوّدين</label>
+      <select id="set-order"><option value="oxion,gemini">Oxion أولاً، وعند الفشل Gemini</option><option value="gemini,oxion">Gemini أولاً، وعند الفشل Oxion</option><option value="oxion">Oxion فقط</option><option value="gemini">Gemini فقط</option></select>
+      <div id="ox-models"></div>
+      <div class="row2 mt"><button class="btn small ghost" id="btn-ox-test"><svg class="i sm"><use href="#i-play"/></svg>تجربة Oxion</button><button class="btn small ghost" id="btn-ox-refresh"><svg class="i sm"><use href="#i-refresh"/></svg>تحديث النماذج</button></div>
+      <p class="status" id="ox-test-r"></p>
     </div>
     <div class="card">
       <h2>أهداف التفاعل</h2>
@@ -452,12 +567,29 @@ nav svg{transition:transform .3s var(--ease)}
       <h2>مفتاح Gemini <small>الكتابة بالذكاء الاصطناعي</small></h2>
       <input id="set-gemini" type="password" placeholder="لصق المفتاح هنا" autocomplete="off">
       <p class="hint" id="gemini-state"></p>
-      <label for="set-gemini-model">النموذج (اختياري)</label><input id="set-gemini-model" dir="ltr" placeholder="gemini-3.8-flash">
+      <button class="guide-btn" data-guide="gemini"><svg class="i sm"><use href="#i-key"/></svg>كيف أحصل على المفتاح؟</button>
+      <label for="set-gemini-model">نموذج الكتابة (فارغ = ترشيح تلقائي)</label><input id="set-gemini-model" dir="ltr" list="gm-list" placeholder="تلقائي">
+      <label for="set-gemini-image">نموذج الصور</label><input id="set-gemini-image" dir="ltr" list="gm-list" placeholder="تلقائي">
+      <label for="set-gemini-video">نموذج الفيديو</label><input id="set-gemini-video" dir="ltr" list="gm-list" placeholder="تلقائي">
+      <datalist id="gm-list"></datalist>
+      <p class="hint" id="gm-picks"></p>
+      <div class="mt"><button class="btn small ghost" id="btn-gm-test"><svg class="i sm"><use href="#i-play"/></svg>تجربة Gemini</button></div>
+      <p class="status" id="gm-test-r"></p>
+    </div>
+    <div class="card">
+      <h2>مستودع الوسائط <small>لنشر الصور والفيديو عبر Instagram الرسمي</small></h2>
+      <p class="hint" style="margin:0 0 6px">Meta لا تقبل رفع ملف من الجوال، بل رابطاً عاماً. يرفع التطبيق الملف لحظة النشر إلى مستودع GitHub عام تملكه ثم يحذفه.</p>
+      <label for="set-relay-repo">المستودع (owner/repo)</label><input id="set-relay-repo" dir="ltr" placeholder="Dev-saged/media-relay">
+      <label for="set-gh-token">رمز GitHub</label><input id="set-gh-token" type="password" dir="ltr" autocomplete="off" placeholder="github_pat_...">
+      <p class="hint" id="relay-state"></p>
+      <div class="row2"><button class="guide-btn" data-guide="relay"><svg class="i sm"><use href="#i-key"/></svg>طريقة الإعداد</button><button class="btn small ghost" id="btn-relay-check"><svg class="i sm"><use href="#i-check"/></svg>فحص</button></div>
+      <p class="status" id="relay-r"></p>
     </div>
     <div class="card">
       <h2>المكتبات الإضافية <small>Instagram الشخصي ويوتيوب</small></h2>
       <p class="hint" id="deps-state" style="margin:0 0 10px"></p>
       <div class="row2"><button class="btn small ghost" id="btn-deps-install"><svg class="i sm"><use href="#i-dl"/></svg>تثبيت الناقص</button><button class="btn small ghost" id="btn-deps-upgrade"><svg class="i sm"><use href="#i-refresh"/></svg>تحديث</button></div>
+      <button class="guide-btn" data-go="health"><svg class="i sm"><use href="#i-box"/></svg>فحص كل مكتبة على حدة وإعادة تثبيتها</button>
       <p class="hint">تُثبَّت في الخلفية بصبر مهما كان الإنترنت بطيئاً، وتكمل وحدها بعد الانقطاع، وتُحدَّث تلقائياً كل أسبوع. بعد التحديث أعد فتح التطبيق ليعتمد النسخة الجديدة.</p>
     </div>
     <div class="card">
@@ -471,6 +603,13 @@ nav svg{transition:transform .3s var(--ease)}
       <input id="bk-file" type="file" accept="application/json,.json" hidden>
       <p class="hint">يصدّر القواعد والردود التلقائية والمسودات والمجدولة. أضف الحسابات يدوياً ثم استورد.</p>
     </div>
+    <div class="card">
+      <h2>نسخة كاملة مشفّرة <small>مع الحسابات والمفاتيح</small></h2>
+      <label for="bk-pass">عبارة المرور (8 أحرف على الأقل، لا تُحفظ)</label><input id="bk-pass" type="password" autocomplete="new-password">
+      <div class="row2 mt"><button class="btn small ghost" id="btn-full-export"><svg class="i sm"><use href="#i-lock"/></svg>تصدير مشفّر</button><button class="btn small ghost" id="btn-full-import"><svg class="i sm"><use href="#i-ul"/></svg>استعادة</button></div>
+      <input id="bk-full-file" type="file" accept="application/json,.json" hidden>
+      <p class="hint">لنقل كل شيء لجوال جديد. بدون العبارة لا يمكن قراءة الملف، فاحفظها جيداً.</p>
+    </div>
     <button class="btn" onclick="saveSettings()">حفظ الإعدادات</button>
   </section>
 </div>
@@ -479,9 +618,10 @@ nav svg{transition:transform .3s var(--ease)}
 
 <div class="sheet" id="sh-ai" role="dialog" aria-label="كتابة بالذكاء الاصطناعي">
   <h3>كتابة بالذكاء الاصطناعي</h3>
-  <div class="seg"><button class="on" id="ai-m-news">آخر الأخبار التقنية</button><button id="ai-m-topic">من موضوع</button></div>
-  <div id="ai-topic-wrap" style="display:none"><label for="ai-topic">الموضوع</label><textarea id="ai-topic" placeholder="اكتب الفكرة أو الخبر أو المنتج"></textarea></div>
-  <label>النبرة</label><div class="chips" id="ai-tones"></div>
+  <div class="seg"><button class="on" id="ai-m-news">آخر الأخبار</button><button id="ai-m-topic">من موضوع</button><button id="ai-m-image"><svg class="i sm"><use href="#i-image"/></svg>صورة</button><button id="ai-m-video"><svg class="i sm"><use href="#i-video"/></svg>فيديو</button></div>
+  <div id="ai-topic-wrap" style="display:none"><label for="ai-topic" id="ai-topic-l">الموضوع</label><textarea id="ai-topic" placeholder="اكتب الفكرة أو الخبر أو المنتج"></textarea></div>
+  <div id="ai-aspect-wrap" style="display:none"><label>المقاس</label><div class="chips" id="ai-aspects"></div></div>
+  <div id="ai-tone-wrap"><label>النبرة</label><div class="chips" id="ai-tones"></div></div>
   <div class="mt"><button class="btn" id="ai-run"><svg class="i sm"><use href="#i-spark"/></svg>ولّد</button></div>
   <div class="mt" id="ai-res"></div>
 </div>
@@ -508,6 +648,11 @@ nav svg{transition:transform .3s var(--ease)}
 </div>
 
 <div class="sheet" id="sh-group" role="dialog" aria-label="تفاصيل المنشور"><div id="gr-body"></div></div>
+
+<div class="sheet" id="sh-guide" role="dialog" aria-label="دليل الحصول على المفتاح"><div id="gd-body"></div></div>
+<div class="sheet" id="sh-check" role="dialog" aria-label="نتيجة الفحص"><div id="ck-body"></div></div>
+<div class="sheet" id="sh-iglogin" role="dialog" aria-label="تسجيل دخول Instagram"><h3>تسجيل دخول Instagram</h3><div id="ig-body"></div></div>
+<div class="sheet" id="sh-creds" role="dialog" aria-label="تحديث بيانات الحساب"><div id="cr-body"></div></div>
 
 <div class="sheet" id="sh-rule" role="dialog" aria-label="قاعدة نشر آلي">
   <h3>قاعدة نشر آلي</h3>
@@ -579,6 +724,8 @@ const fmtD=d=>{const t=new Date(),m=new Date(t.getTime()+864e5);return sameDay(d
 const fmt = ts => new Date(ts*1000).toLocaleTimeString("ar", {hour:"2-digit",minute:"2-digit"});
 const pad=n=>String(n).padStart(2,"0");
 const toLocalInput=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const hms=ms=>{const t=Math.max(0,Math.floor(ms/1000)),hr=Math.floor(t/3600);if(hr>=24)return human(ms);return hr+":"+pad(Math.floor(t%3600/60))+":"+pad(t%60);};
+const ago=sec=>sec==null?"—":sec<60?Math.round(sec)+" ث":sec<3600?Math.round(sec/60)+" د":Math.round(sec/3600)+" س";
 const human=ms=>{const m=Math.max(0,Math.round(ms/6e4)),d=Math.floor(m/1440),hr=Math.floor(m%1440/60);return d?`${d}ي ${hr}س`:`${Math.floor(m/60)}:${pad(m%60)}`;};
 const angleOf=d=>((d.getHours()*60+d.getMinutes()+d.getSeconds()/60)/1440)*360;
 const whenFromAngle=(deg,nowMs)=>{const d=new Date(Math.ceil((nowMs+deg/360*864e5)/3e5)*3e5);if(d-nowMs<12e4)d.setTime(d.getTime()+3e5);return d;};
@@ -608,7 +755,7 @@ function closeSheet(now){const s=openSh;if(!s)return;openSh=null;$("scrim").clas
 /* SECTION: STATE */
 const defaultWhen=()=>{const d=new Date(Date.now()+36e5);d.setMinutes(Math.ceil(d.getMinutes()/5)*5,0,0);return d;};
 const S={caps:sig({}),accs:sig([]),groups:sig([]),text:sig(""),media:sig(null),sel:sig([]),over:sig({}),cur:sig(0),
-  when:sig(defaultWhen()),draft:sig(false),server:sig(true),online:sig(true),counts:sig({}),sched:sig(true),tick:sig(Date.now()),day:sig(new Date()),aiMeta:null};
+  when:sig(defaultWhen()),draft:sig(false),server:sig(true),online:sig(true),counts:sig({}),sched:sig(true),tick:sig(Date.now()),day:sig(new Date()),aiMeta:null,health:sig(null)};
 const accById=id=>S.accs.v.find(a=>a.id===id);
 const plat=a=>CONFIG.platforms[a.platform]||{label:a.platform,mono:a.platform.slice(0,2).toUpperCase()};
 const capOf=a=>S.caps.v[a.platform]||{text:true,image:true,video:true,max_len:1000};
@@ -623,8 +770,8 @@ const strLen=s=>[...s].length;
 const expired=()=>CONFIG.license.expires&&Date.now()>new Date(CONFIG.license.expires).getTime();
 
 /* SECTION: NAV */
-const TITLES={home:CONFIG.brand.name,plan:"الجدول",auto:"التشغيل الآلي",accounts:"الحسابات",more:"المزيد",dash:"النشاط",content:"المولّد السريع",queue:"طابور الموافقة",settings:"الإعدادات"};
-const SUBPARENT={dash:"more",content:"more",queue:"more",settings:"more"};
+const TITLES={home:CONFIG.brand.name,plan:"الجدول",auto:"التشغيل الآلي",accounts:"الحسابات",more:"المزيد",dash:"النشاط",content:"المولّد السريع",queue:"طابور الموافقة",settings:"الإعدادات",health:"الصحة والموثوقية"};
+const SUBPARENT={dash:"more",content:"more",queue:"more",settings:"more",health:"more"};
 let page="home";
 function go(p){
   if(p===page)return;
@@ -644,6 +791,7 @@ function onEnter(p){
   else if(p==="queue")loadQueue();
   else if(p==="settings")loadSettings();
   else if(p==="content")refreshAccountSelects();
+  else if(p==="health")loadHealth();
 }
 
 /* SECTION: COMPOSE - المحرر + المروحة + القرص */
@@ -705,7 +853,9 @@ function renderDial(){
   S.groups.v.filter(x=>x.status!=="cancelled"&&x.scheduled_at*1000>=nowMs-36e5&&x.scheduled_at*1000<=nowMs+864e5).forEach(gr=>{
     const d=new Date(gr.scheduled_at*1000),[x,y]=polar(angleOf(d),R0);
     const n=sv("g",{class:"node",tabindex:"0",role:"button","aria-label":fmtT(d)+" "+(CONFIG.states[gr.state]||"")});
-    n.append(sv("circle",{cx:x,cy:y,r:22,fill:"transparent"}),sv("circle",{cx:x,cy:y,r:7,class:"dot s-"+gr.state}));
+    n.append(sv("circle",{cx:x,cy:y,r:22,fill:"transparent"}));
+    if(!reduce&&(gr.state==="scheduled"||gr.state==="needs_you"))n.append(sv("circle",{cx:x,cy:y,r:7,class:"halo s-"+gr.state}));
+    n.append(sv("circle",{cx:x,cy:y,r:7,class:"dot s-"+gr.state}));
     n.addEventListener("click",()=>openGroup(gr.id));
     n.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openGroup(gr.id);}});
     g.append(n);});
@@ -717,8 +867,19 @@ function renderMeta(){
   const list=S.sel.v.map(accById).filter(Boolean),mx=list.length?Math.min(...list.map(a=>capOf(a).max_len)):0;
   const len=strLen(S.text.v),c=$("count");c.textContent=mx?len+"/"+mx:String(len);c.classList.toggle("over",!!mx&&len>mx);
   const t=S.tick.v,nx=S.groups.v.filter(x=>x.state==="scheduled"&&x.scheduled_at*1000>t).sort((a,b)=>a.scheduled_at-b.scheduled_at)[0];
-  $("next-v").textContent=nx?human(nx.scheduled_at*1000-t):"—";$("next-l").textContent=nx?"المنشور التالي بعد":"لا منشورات قادمة";
+  NEXT.at=nx?nx.scheduled_at*1000:0;$("next-v").textContent=nx?hms(NEXT.at-Date.now()):"—";$("next-l").textContent=nx?"التالي بعد":"لا منشورات قادمة";
+  const sc=S.groups.v.filter(x=>x.state==="scheduled"&&x.scheduled_at*1000>t).length;$("sched-n").textContent=sc;$("sched-chip").style.display=sc?"inline-flex":"none";
   const dr=S.groups.v.filter(x=>x.state==="draft").length,b=$("plan-badge");b.style.display=dr?"inline":"none";b.textContent=dr;
+}
+const NEXT={at:0};
+function tickNext(){if(page!=="home"||document.hidden||!NEXT.at)return;const ms=NEXT.at-Date.now();$("next-v").textContent=ms>0?hms(ms):"الآن";}
+function renderUpnext(){
+  const box=$("up-list");box.textContent="";const t=S.tick.v;
+  const list=S.groups.v.filter(g=>["scheduled","needs_you","draft","waiting"].includes(g.state)&&(g.state==="needs_you"||g.scheduled_at*1000>t-36e5)).sort((a,b)=>a.scheduled_at-b.scheduled_at).slice(0,3);
+  if(!list.length){box.append(h("p",{class:"hint",style:"padding:8px 0 10px"},"لا شيء قادم. اكتب منشوراً واسحبه للأعلى."));return;}
+  list.forEach(g=>{const d=new Date(g.scheduled_at*1000);
+    box.append(h("button",{class:"q",onclick:()=>openGroup(g.id)},h("span",{class:"t"},fmtT(d)),
+      h("span",null,g.text||(g.media_kind==="video"?"فيديو":"صورة"),h("small",null,(CONFIG.states[g.state]||g.state)+" · "+g.targets.map(x=>(CONFIG.platforms[x.platform]||{mono:x.platform}).mono).join(" "))),h("i",{class:g.state})));});
 }
 function renderMediaChip(){
   const box=$("media-chip");box.textContent="";const m=S.media.v;if(!m)return;
@@ -821,9 +982,15 @@ function openWhen(){
 const TONES=["راقي وجذاب","مختصر","رسمي","ودّي"];
 const AI={mode:"news",tone:TONES[0],res:null,short:false,busy:false};
 function renderTones(){const b=$("ai-tones");b.textContent="";TONES.forEach(t=>b.append(h("button",{class:"chip-btn"+(AI.tone===t?" on":""),onclick:()=>{AI.tone=t;renderTones();}},t)));}
-function aiMode(m){AI.mode=m;$("ai-m-news").classList.toggle("on",m==="news");$("ai-m-topic").classList.toggle("on",m==="topic");$("ai-topic-wrap").style.display=m==="topic"?"block":"none";}
+function aiMode(m){AI.mode=m;["news","topic","image","video"].forEach(k=>$("ai-m-"+k).classList.toggle("on",m===k));
+  const media=m==="image"||m==="video";$("ai-topic-wrap").style.display=m==="news"?"none":"block";
+  $("ai-topic-l").textContent=media?(m==="video"?"صف الفيديو (فكرة المقطع)":"صف الصورة"):"الموضوع";
+  if(media&&!$("ai-topic").value.trim()&&S.text.v.trim())$("ai-topic").value=S.text.v.trim().slice(0,600);
+  $("ai-tone-wrap").style.display=media?"none":"block";$("ai-aspect-wrap").style.display=media?"block":"none";if(media)renderAspects();
+  $("ai-res").textContent="";}
 async function aiRun(toneAdd){
   if(AI.busy)return;
+  if(AI.mode==="image"||AI.mode==="video")return aiMedia();
   const topic=$("ai-topic").value.trim();
   if(AI.mode==="topic"&&!topic){toast("اكتب موضوع المنشور");return;}
   AI.busy=true;$("ai-run").disabled=true;const box=$("ai-res");box.textContent="";box.append(h("div",{class:"sk"}),h("div",{class:"sk",style:"width:80%"}),h("div",{class:"sk",style:"width:60%"}));
@@ -835,7 +1002,7 @@ function aiPick(){const r=AI.res;if(!r)return"";let t=AI.short?r.short:r.text;co
 function renderAIRes(){
   const box=$("ai-res"),r=AI.res;box.textContent="";if(!r)return;
   box.append(h("div",{class:"item"},
-    r.title?h("div",{class:"top"},h("span",{class:"who"},r.title)):null,
+    h("div",{class:"top"},h("span",{class:"who"},r.title||"منشور"),r.provider?h("span",{class:"prov"},r.provider==="oxion"?"Oxion":"Gemini"):null),
     h("p",null,aiPick()),
     (r.sources||[]).slice(0,3).map(s=>h("span",{class:"src"},s.url||s.title||"")),
     h("div",{class:"chips mt"},
@@ -861,8 +1028,8 @@ async function loadGroups(){
 }
 async function loadCaps(){try{S.caps.v=await api("platforms");}catch{}}
 async function pulse(){
-  try{const d=await api("health");S.server.v=true;S.online.v=!!d.online;S.sched.v=d.scheduler!==false;S.counts.v=d.targets||{};}
-  catch{S.server.v=false;}
+  try{const d=await api("health");S.server.v=true;S.online.v=!!d.online;S.sched.v=d.scheduler!==false;S.counts.v=d.targets||{};S.health.v=d;}
+  catch{S.server.v=false;S.health.v=null;}
 }
 function renderBar(){
   const b=$("bar-off"),w=S.counts.v.waiting_network||0;
@@ -906,11 +1073,11 @@ async function buildQueue(){
 
 /* الحسابات */
 const PLATFORMS=Object.entries(CONFIG.platforms).map(([k,v])=>[k,v.label]);
-let accType="personal",platform="instagram",accountsCache=[],selectedMedia=null;
+let accType="official",platform="instagram",accountsCache=[],selectedMedia=null;
 $("platform-chips").innerHTML=PLATFORMS.map(([v,n],i)=>`<button class="chip-btn ${i?"":"on"}" data-v="${v}" onclick="pickPlatform(this)">${n}</button>`).join("");
 const CREDENTIAL_FIELDS={
-  instagram:{personal:[["password","كلمة مرور Instagram","password"]],business:[["access_token","Instagram Access Token","password"],["ig_user_id","Instagram User ID","text"]]},
-  facebook:{personal:[["access_token","Page Access Token","password"],["page_id","Facebook Page ID","text"]]},
+  instagram:{official:[["access_token","Instagram Access Token (من لوحة Meta)","password"]],personal:[["password","كلمة مرور Instagram","password"],["sessionid","أو sessionid بدل كلمة المرور (اختياري)","password"]],business:[["access_token","Instagram Access Token","password"],["ig_user_id","Instagram User ID","text"]]},
+  facebook:{share:[],personal:[["access_token","Page Access Token","password"],["page_id","Facebook Page ID","text"]]},
   x:{personal:[["api_key","API Key","password"],["api_secret","API Secret","password"],["access_token","Access Token","password"],["access_token_secret","Access Token Secret","password"]]},
   youtube:{personal:[["client_secrets_path","مسار client_secrets.json (اختياري)","text"]]},
   telegram:{personal:[["bot_token","Bot Token","password"],["chat_id","Chat ID أو @القناة","text"]]},
@@ -918,30 +1085,42 @@ const CREDENTIAL_FIELDS={
   threads:{personal:[["access_token","Threads Access Token","password"],["user_id","Threads User ID","text"]]}
 };
 function renderCredentialFields(){
-  const showType=platform==="instagram";
-  $("account-type-control").style.display=showType?"block":"none";
+  const types=CONFIG.accTypes[platform];
+  $("account-type-control").style.display=types?"block":"none";
+  if(types){if(!types.some(([t])=>t===accType))accType=types[0][0];
+    const box=$("type-chips");box.textContent="";
+    types.forEach(([t,l])=>box.append(h("button",{class:"chip-btn"+(t===accType?" on":""),id:"type-"+t,onclick:()=>setAccType(t)},l)));}
+  else accType="personal";
   const fields=CREDENTIAL_FIELDS[platform][accType]||CREDENTIAL_FIELDS[platform].personal;
-  $("credential-fields").innerHTML=fields.map(([key,label,type])=>`<div><label for="cred-${key}">${label}</label><input id="cred-${key}" type="${type}" autocomplete="off"></div>`).join("");
+  $("credential-fields").innerHTML=fields.map(([key,label,type])=>`<div><label for="cred-${key}">${label}</label><input id="cred-${key}" type="${type}" autocomplete="off" dir="ltr"></div>`).join("")+(fields.length?"":`<p class="hint">لا يلزم أي مفتاح: في الموعد يجهّز التطبيق النص والوسائط وينبهك، وأنت تضغط «نشر» في فيسبوك.</p>`);
+  const g=GUIDES[guideKey()];$("btn-guide").style.display=g?"inline-flex":"none";if(g)$("guide-l").textContent=g.cta||"كيف أحصل على بيانات الدخول؟";
 }
-function pickPlatform(el){platform=el.dataset.v;$("platform-chips").querySelectorAll(".chip-btn").forEach(b=>b.classList.remove("on"));el.classList.add("on");renderCredentialFields();}
-function setAccType(t){accType=t;$("type-personal").classList.toggle("on",t==="personal");$("type-business").classList.toggle("on",t==="business");renderCredentialFields();}
+const guideKey=()=>GUIDES[platform+":"+accType]?platform+":"+accType:platform;
+function pickPlatform(el){platform=el.dataset.v;accType=(CONFIG.accTypes[platform]||[["personal"]])[0][0];$("platform-chips").querySelectorAll(".chip-btn").forEach(b=>b.classList.remove("on"));el.classList.add("on");renderCredentialFields();}
+function setAccType(t){accType=t;document.querySelectorAll("#type-chips .chip-btn").forEach(b=>b.classList.toggle("on",b.id==="type-"+t));renderCredentialFields();}
 async function addAccount(){
   try{
     const credentials={};
     for(const [key] of CREDENTIAL_FIELDS[platform][accType]||CREDENTIAL_FIELDS[platform].personal){credentials[key]=$("cred-"+key).value.trim();}
-    await api("accounts",{platform,username:$("acc-user").value.trim(),credentials,type:platform==="instagram"?accType:"personal"});
-    $("acc-user").value="";renderCredentialFields();toast("تمت إضافة الحساب");loadAccounts();
+    await api("accounts",{platform,username:$("acc-user").value.trim(),credentials,type:CONFIG.accTypes[platform]?accType:"personal"});
+    $("acc-user").value="";renderCredentialFields();toast("تمت إضافة الحساب، جارٍ فحصه...");
+    await loadAccounts();const last=[...S.accs.v].sort((a,b)=>b.id-a.id)[0];
+    if(last&&!(last.platform==="instagram"&&last.type==="personal"))validateAcc(last.id);
+    else if(last)igLogin(last.id);
   }catch(e){toast(e.message)}
 }
 async function loadAccounts(){
   try{
     const list=await api("accounts");
     accountsCache=list;S.accs.v=list;
+    const TL={official:"رسمي",business:"بيزنس",share:"مشاركة يدوية",personal:"شخصي"};
     $("accounts-list").innerHTML=list.length?list.map(a=>
-      `<div class="item"><div class="top"><span class="who">${esc(a.platform)} :: ${esc(a.username)}</span>
-       <span class="tag">${a.active?"فعّال":"متوقف"} · ${a.type==="business"?"بيزنس":"شخصي"}</span></div>
+      `<div class="item"><div class="top"><span class="who">${esc((CONFIG.platforms[a.platform]||{label:a.platform}).label)} · ${esc(a.username)}</span>
+       <span class="tag">${a.active?"فعّال":"متوقف"} · ${a.platform==="facebook"&&a.type==="personal"?"صفحة":TL[a.type]||"شخصي"}</span></div>
        <div class="actions"><button class="btn small ghost" onclick="toggleAccount(${a.id},${!a.active})">${a.active?"إيقاف":"تفعيل"}</button>
        <button class="btn small ghost" onclick="validateAcc(${a.id})">فحص الدخول</button>
+       ${a.platform==="instagram"&&a.type!=="business"?`<button class="btn small ghost" onclick="igLogin(${a.id})">تسجيل الدخول</button>`:""}
+       <button class="btn small ghost" onclick="openCreds(${a.id})">تحديث البيانات</button>
        <button class="btn small bad" onclick="delAccount(${a.id})">حذف</button></div></div>`).join("")
       : `<div class="empty">أضف حسابك الأول</div>`;
     refreshAccountSelects();
@@ -949,7 +1128,24 @@ async function loadAccounts(){
 }
 async function delAccount(id){try{await api("accounts/"+id,{method:"DELETE"});toast("حُذف الحساب ومهامه المرتبطة");loadAccounts();}catch(e){toast(e.message)}}
 async function toggleAccount(id,active){try{await api("accounts/"+id+"/active",{active});loadAccounts();}catch(e){toast(e.message)}}
-async function validateAcc(id){try{toast("جارٍ الفحص...");const r=await api("accounts/"+id+"/validate",{});toast(r.detail);}catch(e){toast(e.message)}}
+async function validateAcc(id){
+  const a=accById(id),body=$("ck-body");body.textContent="";
+  body.append(h("h3",null,"فحص الدخول · ",a?plat(a).label+" "+a.username:""),h("div",{class:"sk"}),h("div",{class:"sk",style:"width:70%"}));openSheet("sh-check");
+  try{const r=await api("accounts/"+id+"/validate",{});body.textContent="";
+    body.append(h("h3",null,"فحص الدخول · ",a?plat(a).label+" "+a.username:""),resultBox(r));
+    const key=a?(GUIDES[a.platform+":"+a.type]?a.platform+":"+a.type:a.platform):"";
+    const acts=h("div",{class:"row2 mt"});
+    if(!r.ok&&(r.code==="challenge_required"||r.code==="two_factor"||r.code==="session_expired"))acts.append(h("button",{class:"btn small",onclick:()=>igLogin(id)},"تسجيل الدخول الآن"));
+    if(!r.ok&&GUIDES[key])acts.append(h("button",{class:"btn small ghost",onclick:()=>openGuide(key)},ic("key","sm"),"افتح الدليل"));
+    if(!r.ok)acts.append(h("button",{class:"btn small ghost",onclick:()=>openCreds(id)},"تحديث البيانات"));
+    if(acts.children.length)body.append(acts);
+  }catch(e){body.textContent="";body.append(resultBox({ok:false,message:e.message}));}
+}
+function resultBox(r){
+  const info=r.info||{},extra=Object.values(info).filter(Boolean).join(" · ");
+  return h("div",{class:"res"},h("span",{class:"st-ic "+(r.ok?"ok":"bad")},ic(r.ok?"check":"x")),
+    h("div",null,h("b",null,r.message||(r.ok?"تم":"فشل")),r.detail?h("p",null,r.detail):null,extra?h("p",null,extra):null,r.hint?h("p",{class:"hintx"},r.hint):null));
+}
 
 async function uploadMedia(file){
   selectedMedia=null;$("media-status").textContent="";
@@ -1049,7 +1245,12 @@ async function loadSettings(){
     const s=await api("settings");$("set-persona").value=s.persona||"";
     $("gemini-state").textContent=s.has_gemini_key?"مفتاح Gemini محفوظ ✓ (اتركه فارغاً للإبقاء عليه)":"لا يوجد مفتاح Gemini، الكتابة الذكية معطّلة";
     $("set-gemini-model").value=s.gemini_model||"";$("set-grace").value=s.missed_grace_hours||"12";
-    $("key-state").textContent=s.has_api_key?"مفتاح محفوظ ✓ (اتركه فارغاً للإبقاء عليه)":"لا يوجد مفتاح بعد";
+    $("key-state").textContent=s.has_oxion_key?"مفتاح Oxion محفوظ ✓ (اتركه فارغاً للإبقاء عليه)":"لا يوجد مفتاح Oxion، سيُستخدم Gemini وحده";
+    loadSettings.last=s;$("set-order").value=s.ai_order||"oxion,gemini";
+    $("set-gemini-image").value=s.gemini_image_model||"";$("set-gemini-video").value=s.gemini_video_model||"";
+    $("set-relay-repo").value=s.relay_repo||"";
+    $("relay-state").textContent=s.relay_ready?"جاهز ✓ (الرمز محفوظ مشفّراً)":s.has_github_token?"الرمز محفوظ، أدخل المستودع":"غير مفعّل: Instagram الرسمي لن يستطيع نشر الوسائط";
+    loadModels(false);
     const list=await api("targets");
     $("targets-list").innerHTML=list.length?list.map(t=>
       `<div class="log"><span class="t">•</span><span><b>${esc(t.username)}</b></span>
@@ -1068,8 +1269,12 @@ async function saveSettings(){
     if($("set-key").value.trim()) body.api_key=$("set-key").value.trim();
     if($("set-gemini").value.trim()) body.gemini_api_key=$("set-gemini").value.trim();
     body.gemini_model=$("set-gemini-model").value.trim();
+    body.gemini_image_model=$("set-gemini-image").value.trim();body.gemini_video_model=$("set-gemini-video").value.trim();
+    body.ai_order=$("set-order").value;
+    ["text","web","vision"].forEach(r=>{const el=$("ox-m-"+r);if(el)body["oxion_model_"+r]=el.value;});
+    body.relay_repo=$("set-relay-repo").value.trim();if($("set-gh-token").value.trim())body.github_token=$("set-gh-token").value.trim();
     if($("set-grace").value) body.missed_grace_hours=$("set-grace").value;
-    await api("settings",body);$("set-key").value="";$("set-gemini").value="";toast("حُفظت الإعدادات");loadSettings();
+    await api("settings",body);$("set-key").value="";$("set-gemini").value="";$("set-gh-token").value="";toast("حُفظت الإعدادات");loadSettings();
   }catch(e){toast(e.message)}
 }
 
@@ -1087,7 +1292,7 @@ function renderPlan(){
   for(let i=0;i<14;i++){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()+i),has=all.some(g=>g.status!=="cancelled"&&sameDay(new Date(g.scheduled_at*1000),d));
     strip.append(h("button",{class:"day"+(has?" has":"")+(sameDay(d,S.day.v)?" on":""),onclick:()=>{S.day.v=d;buzz(6);}},
       h("small",null,d.toLocaleDateString(L,{weekday:"short"})),h("b",{class:"num"},d.getDate()),h("i")));}
-  const attn=all.filter(g=>g.state==="draft"||g.state==="failed"||g.state==="partial").sort((a,b)=>a.scheduled_at-b.scheduled_at);
+  const attn=all.filter(g=>g.state==="draft"||g.state==="failed"||g.state==="partial"||g.state==="needs_you"||g.targets.some(t=>t.status==="needs_you")).sort((a,b)=>a.scheduled_at-b.scheduled_at);
   const box=$("drafts-box");box.textContent="";
   if(attn.length){box.append(h("div",{class:"peek"},h("h2",null,"تحتاج انتباهك ",h("span",{class:"badge num"},attn.length)),attn.map(g=>h("div",null,h("small",{class:"hint"},fmtD(new Date(g.scheduled_at*1000))),groupCard(g)))));}
   const list=$("plan-list");list.textContent="";
@@ -1109,7 +1314,12 @@ function openGroup(id){
     const p=CONFIG.platforms[t.platform]||{label:t.platform};
     return h("div",{class:"item"},
       h("div",{class:"top"},h("span",{class:"who"},p.label+" · "+t.username),h("span",{class:"tag"},CONFIG.targetStates[t.status]||t.status)),
-      t.error?h("div",{class:"err-t"},t.error):null,
+      t.error&&t.status!=="needs_you"?h("div",{class:"err-t"},t.error):null,
+      t.hint&&t.status!=="needs_you"&&t.status!=="published"?h("div",{class:"hint"},t.hint):null,
+      t.status==="needs_you"?h("div",{class:"actions"},
+        h("button",{class:"btn small",onclick:()=>shareNow(g,t)},ic("share","sm"),"شارك الآن"),
+        g.media_id?h("a",{class:"btn small ghost",href:"/api/media/"+g.media_id,download:g.media_id},ic("dl","sm"),"تنزيل الوسائط"):null,
+        h("button",{class:"btn small ok",onclick:async()=>{try{await api("group-targets/"+t.id+"/done",{});toast("سُجّل كمنشور");await loadGroups();openGroup(id);}catch(e){toast(e.message);}}},ic("check","sm"),"تم النشر")):null,
       t.attempts?h("div",{class:"meta num"},"المحاولات: "+t.attempts+(t.next_try_at&&t.status==="pending"?" · التالية "+fmtT(new Date(t.next_try_at*1000)):"")):null,
       (t.status==="failed"||t.status==="missed")?h("div",{class:"actions"},h("button",{class:"btn small ghost",onclick:async()=>{try{await api("group-targets/"+t.id+"/retry",{});toast("أُعيدت للطابور");await loadGroups();openGroup(id);}catch(e){toast(e.message);}}},ic("refresh","sm"),"إعادة المحاولة")):null);})));
   const acts=h("div",{class:"row mt"});
@@ -1245,11 +1455,291 @@ async function selfTest(){
   t("legacy ids",()=>["page-dash","page-accounts","page-content","page-queue","page-settings","platform-chips","acc-user","credential-fields","accounts-list","c-topic","c-platform","c-account","c-result","c-time","media-file","posts-list","queue-list","set-persona","set-key","t-account","t-user","targets-list","toast","q-badge","clock","s-accounts","logs","build-status"].every(i=>$(i)));
   t("legacy funcs",()=>[loadDash,buildQueue,loadAccounts,addAccount,generate,schedulePost,loadQueue,approveQ,rejectQ,saveSettings,uploadMedia].every(f=>typeof f==="function"));
   t("nav max 5",()=>document.querySelectorAll("nav button").length<=5);
+  t("oklch->rgb",()=>oklchRgb("oklch(1 0 0)")==="rgb(255,255,255)"&&oklchRgb("oklch(0 0 0)")==="rgb(0,0,0)");
+  t("hms",()=>hms(3723e3)==="1:02:03"&&hms(0)==="0:00:00");
+  t("guides cover platforms",()=>Object.keys(CONFIG.platforms).every(p=>GUIDES[p]||Object.keys(GUIDES).some(k=>k.startsWith(p+":"))));
+  t("guides providers",()=>["oxion","gemini","relay"].every(k=>GUIDES[k]&&GUIDES[k].steps.length>=3));
+  t("states labels",()=>CONFIG.states.needs_you&&CONFIG.targetStates.needs_you);
+  t("richText code",()=>richText("a `b` c").some(x=>x.tagName==="CODE"));
+  t("hbState",()=>hbState({scheduler:true,hb_age:10})==="ok"&&hbState({scheduler:true,hb_age:300})==="late"&&hbState(null)==="dead");
+  t("no dash on home",()=>!$("page-dash").classList.contains("on")||page==="dash");
+  t("fonts local",()=>![...document.querySelectorAll("link[rel=stylesheet]")].some(l=>/googleapis/.test(l.href)));
   try{const hl=await api("health");t("server version == CONFIG",()=>hl.version===CONFIG.version);}catch(e){t("api/health",()=>{throw e;});}
   try{const c=await api("platforms");t("platforms caps",()=>Object.values(c).every(x=>"text" in x&&"max_len" in x)&&Object.keys(CONFIG.platforms).every(k=>k in c));}catch(e){t("api/platforms",()=>{throw e;});}
   try{const r=await api("reply-rules/test",{text:"أبغى المشروع",keywords:["مشروع"],whole_word:false});t("matcher arabic",()=>r.matched===true);}catch(e){t("matcher",()=>{throw e;});}
+  try{const hl=await api("health");t("heartbeat fields",()=>"hb_age" in hl&&"delays" in hl&&hl.schema>=4);}catch(e){t("health v2",()=>{throw e;});}
+  try{const d=await api("deps/check");t("libs check",()=>d.libs.some(l=>l.module==="flask"&&l.ok));}catch(e){t("deps/check",()=>{throw e;});}
+  try{const r=await fetch("/fonts/kufi-arabic.woff2");t("font served",()=>r.ok);}catch(e){t("font",()=>{throw e;});}
   out.textContent=(bad?"FAILED "+bad:"ALL PASSED")+"\n\n"+log.join("\n")+"\n\n(أغلق بتغيير الـ hash)";
 }
+
+/* SECTION: GUIDES - خطوات الحصول على بيانات كل منصة (نص بين `علامتين` يظهر كرمز) */
+const GUIDES={
+  "telegram":{t:"تلغرام: Bot Token و Chat ID",steps:[
+    "افتح تلغرام وابحث عن `@BotFather` ثم أرسل `/newbot` واختر اسماً ومعرّفاً ينتهي بـ bot.",
+    "انسخ الرمز الذي يرسله (مثل `123456:ABC...`) والصقه في خانة Bot Token.",
+    "أضف البوت مشرفاً في قناتك أو مجموعتك مع صلاحية نشر الرسائل.",
+    "في Chat ID اكتب معرّف القناة العامة مثل `@my_channel`. للقناة الخاصة: حوّل أي منشور منها إلى `@userinfobot` ليعطيك رقماً يبدأ بـ `-100`.",
+    "اضغط إضافة، والتطبيق يفحص البوت والقناة معاً ويخبرك بالسبب إن فشل."],
+    links:[["فتح BotFather","https://t.me/BotFather"]]},
+  "bluesky":{t:"Bluesky: App Password",steps:[
+    "افتح Bluesky ← الإعدادات ← الخصوصية والأمان ← App Passwords.",
+    "أنشئ كلمة مرور تطبيق باسم «مدير حساباتي» وانسخها فوراً (تظهر مرة واحدة).",
+    "المعرّف هو اسمك الكامل مثل `name.bsky.social`، ولا تستخدم كلمة مرورك الأساسية أبداً."],
+    links:[["صفحة App Passwords","https://bsky.app/settings/app-passwords"]]},
+  "x":{t:"X: مفاتيح المطوّر الأربعة",steps:[
+    "افتح بوابة المطوّرين وسجّل بحساب X، ثم أنشئ Project وApp.",
+    "في User authentication settings فعّل صلاحية `Read and write` قبل إنشاء الرموز، وإلا تكون للقراءة فقط.",
+    "من Keys and tokens انسخ API Key وAPI Secret.",
+    "أنشئ Access Token وAccess Token Secret وانسخهما.",
+    "الباقة المجانية تسمح بعدد محدود من المنشورات شهرياً، وتظهر رسالة واضحة إن تجاوزته."],
+    links:[["بوابة مطوّري X","https://developer.x.com/en/portal/dashboard"]]},
+  "threads":{t:"Threads: رمز ومعرّف المستخدم",steps:[
+    "في developers.facebook.com أنشئ تطبيقاً واختر حالة الاستخدام «Access the Threads API».",
+    "أضف الصلاحيتين `threads_basic` و`threads_content_publish`.",
+    "من App roles أضف حسابك كـ Threads Tester، ثم اقبل الدعوة من Threads: الحساب ← المواقع والتطبيقات.",
+    "من User Token Generator في لوحة التطبيق أنشئ رمزاً وانسخ معه User ID.",
+    "التطبيق يجدد الرمز أسبوعياً قبل انتهاء صلاحيته (60 يوماً)."],
+    links:[["لوحة تطبيقات Meta","https://developers.facebook.com/apps"]]},
+  "instagram:official":{t:"Instagram الرسمي (حسابك الاحترافي)",cta:"كيف أحصل على Access Token؟",steps:[
+    "حسابك يجب أن يكون احترافياً (Creator أو Business). تجده في Instagram: الإعدادات ← نوع الحساب والأدوات. لا يلزم ربط صفحة فيسبوك.",
+    "افتح developers.facebook.com ← My Apps ← Create app، واختر النوع Business.",
+    "أضف منتج Instagram واختر «API setup with Instagram login».",
+    "من App roles ← Roles أضف حسابك كـ Instagram Tester، ثم من Instagram: الإعدادات ← التطبيقات والمواقع ← دعوات المختبِرين ← قبول.",
+    "ارجع إلى «Generate access tokens» واضغط Add account وسجّل دخولك، ثم انسخ الرمز.",
+    "الصق الرمز فقط. التطبيق يستنتج معرّف الحساب ويجدد الرمز أسبوعياً.",
+    "لنشر الصور والفيديو فعّل «مستودع الوسائط» من الإعدادات، وأضف كلمة المرور من «تحديث البيانات» لتعمل بديلاً تلقائياً."],
+    links:[["لوحة تطبيقات Meta","https://developers.facebook.com/apps"]]},
+  "instagram:personal":{t:"Instagram الشخصي: كلمة مرور أو جلسة",cta:"كيف يعمل الدخول بكلمة المرور أو الجلسة؟",steps:[
+    "اكتب اسم المستخدم وكلمة المرور ثم اضغط إضافة، فتُفتح نافذة تسجيل الدخول تلقائياً.",
+    "إن طلب Instagram تأكيد هويتك يصلك رمز بالبريد أو الرسائل، فأدخله في النافذة.",
+    "إن كان التحقق بخطوتين مفعّلاً، أدخل رمز تطبيق المصادقة.",
+    "بديل كلمة المرور: افتح instagram.com في متصفح حاسوب وسجّل دخولك، ثم أدوات المطوّر ← Application ← Cookies ← انسخ قيمة `sessionid`.",
+    "الجلسة تُحفظ مشفّرة على جوالك، فلا يُعاد تسجيل الدخول في كل مرة.",
+    "هذا الوضع غير رسمي وفيه خطر تقييد الحساب، فاجعله بديلاً للرسمي."]},
+  "instagram:business":{t:"Instagram Business القديم",steps:[
+    "هذا الوضع يمر عبر صفحة فيسبوك مربوطة، وهو محفوظ للحسابات القديمة.",
+    "للحسابات الجديدة استخدم الوضع الرسمي، فهو لا يحتاج صفحة."]},
+  "facebook:share":{t:"فيسبوك الشخصي: مشاركة نصف آلية",cta:"كيف تعمل المشاركة؟",steps:[
+    "لا يلزم أي مفتاح، يكفي اسمك على فيسبوك.",
+    "في الموعد يظهر المنشور في «الجدول» بحالة «بانتظارك»، وتنبض نقطته على القرص.",
+    "اضغط «شارك الآن»: يُنسخ النص ويُفتح شريط المشاركة مع الصورة أو الفيديو. اختر فيسبوك، والصق النص، ثم انشر.",
+    "عُد واضغط «تم النشر» ليُسجَّل في السجل.",
+    "السبب: Meta منعت النشر الآلي على الملفات الشخصية منذ 2018، والمسموح للصفحات فقط."]},
+  "facebook:personal":{t:"صفحة فيسبوك: Page Token",steps:[
+    "من Graph API Explorer اختر تطبيقك واطلب الصلاحيات `pages_manage_posts` و`pages_read_engagement`.",
+    "اختر صفحتك من قائمة User or Page لتحصل على Page Access Token.",
+    "انسخ معرّف الصفحة من «حول» الصفحة أو من نتيجة `me/accounts`."],
+    links:[["Graph API Explorer","https://developers.facebook.com/tools/explorer/"]]},
+  "youtube":{t:"يوتيوب: ملف OAuth",steps:[
+    "في Google Cloud Console أنشئ مشروعاً وفعّل YouTube Data API v3.",
+    "في OAuth consent screen اختر External وأضف بريدك كمستخدم اختبار.",
+    "Credentials ← Create credentials ← OAuth client ID ← Desktop app، ثم نزّل ملف JSON وسمّه `client_secrets.json`.",
+    "ضعه في مجلد بيانات التطبيق أو اكتب مساره في الخانة.",
+    "الحصة اليومية المجانية تكفي لعدد محدود من الرفعات يومياً."],
+    links:[["Google Cloud Console","https://console.cloud.google.com/apis/library/youtube.googleapis.com"]]},
+  "oxion":{t:"مفتاح Oxion",steps:[
+    "ادخل oxionai.com ← Dashboard ← API Keys ← Create Key.",
+    "يظهر المفتاح مرة واحدة ويبدأ بـ `cc_`، فانسخه فوراً.",
+    "أبقِ الصلاحيات الثلاث مفعّلة، خصوصاً `models:read` لجلب قائمة النماذج وأسعارها.",
+    "الصقه هنا واحفظ، ثم اضغط «تجربة Oxion». التطبيق يرشّح الأرخص والأقوى لكل مهمة تلقائياً."],
+    links:[["لوحة Oxion","https://oxionai.com/dashboard"]]},
+  "gemini":{t:"مفتاح Gemini",steps:[
+    "افتح Google AI Studio وسجّل بحساب Google.",
+    "اضغط Create API key واختر مشروعاً.",
+    "انسخ المفتاح والصقه هنا. Gemini هو البديل التلقائي للكتابة، والمسؤول عن الصور والفيديو.",
+    "توليد الصور والفيديو قد يتطلب تفعيل الفوترة في المشروع."],
+    links:[["Google AI Studio","https://aistudio.google.com/apikey"]]},
+  "relay":{t:"مستودع الوسائط على GitHub",steps:[
+    "أنشئ مستودعاً عاماً على GitHub، مثلاً `media-relay`، وفعّل خيار README.",
+    "Settings ← Developer settings ← Fine-grained tokens ← Generate new token.",
+    "اختر هذا المستودع فقط، وامنح الصلاحية `Contents: Read and write`.",
+    "الصق الرمز واسم المستودع بصيغة `owner/repo` ثم اضغط «فحص».",
+    "كل ملف يُحذف بعد نشره، لكنه يبقى في سجل المستودع. يمكنك حذف المستودع وإنشاؤه من جديد متى شئت."],
+    links:[["إنشاء مستودع","https://github.com/new"],["إنشاء رمز","https://github.com/settings/personal-access-tokens/new"]]}
+};
+function richText(str){const out=[];String(str).split("`").forEach((part,i)=>{if(part)out.push(i%2?h("code",null,part):part);});return out;}
+function openGuide(key){
+  const g=GUIDES[key];if(!g)return;const b=$("gd-body");b.textContent="";
+  b.append(h("h3",null,g.t),h("ol",{class:"steps"},g.steps.map(st=>h("li",null,h("span",null,richText(st))))));
+  if(g.links)b.append(h("div",{class:"links"},g.links.map(([l,u])=>h("a",{class:"link",href:u,target:"_blank",rel:"noopener noreferrer"},l,ic("ext","sm")))));
+  b.append(h("div",{class:"mt"},h("button",{class:"btn ghost",onclick:()=>closeSheet()},"فهمت")));
+  openSheet("sh-guide");
+}
+
+/* SECTION: IGLOGIN - تسجيل دخول تفاعلي برمز التأكيد */
+let igPoll=null;
+async function igLogin(id){
+  const b=$("ig-body");b.textContent="";b.append(h("div",{class:"sk"}),h("div",{class:"sk",style:"width:70%"}));openSheet("sh-iglogin");
+  try{await api("accounts/"+id+"/ig-login",{});}catch(e){b.textContent="";b.append(resultBox({ok:false,message:e.message}));return;}
+  clearInterval(igPoll);let shown="";
+  igPoll=setInterval(async()=>{
+    if(openSh!==$("sh-iglogin")){clearInterval(igPoll);return;}
+    let st;try{st=await api("accounts/"+id+"/ig-login");}catch{return;}
+    if(st.state===shown&&st.state!=="running")return;shown=st.state;b.textContent="";
+    if(st.state==="running"||st.state==="verifying"){b.append(h("p",{class:"hint"},st.state==="verifying"?"جارٍ التحقق من الرمز...":"جارٍ تسجيل الدخول..."),h("div",{class:"sk"}),h("div",{class:"sk",style:"width:60%"}));return;}
+    if(st.state==="need_code"){
+      const inp=h("input",{class:"codein",inputmode:"numeric",autocomplete:"one-time-code",maxlength:"8","aria-label":"الرمز"});
+      b.append(h("p",{style:"font-size:13px;line-height:1.8"},st.message||"أدخل الرمز"),inp,h("div",{class:"mt"},h("button",{class:"btn",onclick:async()=>{try{await api("accounts/"+id+"/ig-code",{code:inp.value});buzz(10);}catch(e){toast(e.message);}}},ic("check","sm"),"تأكيد")));
+      setTimeout(()=>inp.focus(),300);return;}
+    clearInterval(igPoll);
+    b.append(resultBox({ok:st.state==="ok",message:st.message,hint:st.hint}),h("div",{class:"mt"},h("button",{class:"btn ghost",onclick:()=>closeSheet()},"إغلاق")));
+    loadAccounts();
+  },1500);
+}
+
+/* SECTION: CREDS - تحديث بيانات حساب قائم */
+function openCreds(id){
+  const a=accById(id);if(!a)return;const b=$("cr-body");b.textContent="";
+  let fields=(CREDENTIAL_FIELDS[a.platform]||{})[a.type]||(CREDENTIAL_FIELDS[a.platform]||{}).personal||[];
+  if(a.platform==="instagram"&&a.type==="official")fields=[...fields,...CREDENTIAL_FIELDS.instagram.personal.map(([k,l,t])=>[k,l+" (بديل تلقائي)",t])];
+  const ins={};
+  b.append(h("h3",null,"تحديث · "+plat(a).label+" "+a.username),h("p",{class:"hint"},"اترك الخانة فارغة للإبقاء على قيمتها الحالية."));
+  fields.forEach(([k,l,t])=>{ins[k]=h("input",{type:t,autocomplete:"off",dir:"ltr",id:"cr-"+k});b.append(h("label",{for:"cr-"+k},l),ins[k]);});
+  if(!fields.length)b.append(h("p",{class:"hint"},"لا توجد بيانات لهذا الحساب."));
+  b.append(h("div",{class:"mt"},h("button",{class:"btn",onclick:async()=>{
+    const creds={};for(const k in ins)if(ins[k].value.trim())creds[k]=ins[k].value.trim();
+    if(!Object.keys(creds).length){toast("لم تُدخل شيئاً");return;}
+    try{await api("accounts/"+id+"/credentials",{method:"PATCH",credentials:creds});closeSheet();toast("حُدّثت البيانات");validateAcc(id);}catch(e){toast(e.message);}}},"حفظ وفحص")));
+  openSheet("sh-creds");
+}
+
+/* SECTION: HEALTH - نبض الحياة، دقة المواعيد، الحسابات، المكتبات */
+function hbState(d){if(!d)return"dead";if(d.scheduler===false||d.hb_age==null)return"dead";return d.hb_age<95?"ok":d.hb_age<600?"late":"dead";}
+function renderHb(){const d=S.health.v,st=S.server.v?hbState(d):"dead";$("hb-dot").className="hb "+st;
+  $("clock-chip").setAttribute("aria-label",st==="ok"?"التطبيق يعمل":st==="late"?"المجدول متأخر":"المجدول متوقف");}
+function renderVital(){
+  if(page!=="health")return;const d=S.health.v,st=S.server.v?hbState(d):"dead",v=$("vital");v.className="vital "+st;
+  const age=d&&d.hb_age!=null?d.hb_age:null,frac=age==null?0:Math.max(0,1-age/600);
+  $("vital-ring").setAttribute("stroke-dashoffset",String(314*(1-frac)));
+  $("vital-t").textContent=st==="ok"?"حيّ ويعمل":st==="late"?"المجدول متأخر":"المجدول متوقف";
+  const p=[];if(d){p.push("آخر نبضة قبل "+ago(age));if(d.started_at)p.push("يعمل منذ "+ago(Date.now()/1000-d.started_at));
+    p.push(d.online?"الإنترنت متصل":"بلا إنترنت");if(d.overdue)p.push(d.overdue+" منشوراً فات موعده بانتظار الاستدراك");}
+  else p.push("الخادم المحلي لا يستجيب، أعد فتح التطبيق");
+  if(st!=="ok")p.push("فعّل «إبقاؤه حياً» من الأسفل حتى لا يوقفه أندرويد");
+  $("vital-p").textContent=p.join(" · ");
+  const box=$("delay-box");box.textContent="";const ds=(d&&d.delays)||[];
+  if(!ds.length){box.append(h("p",{class:"hint"},"تظهر هنا بعد أول منشور: كم تأخر النشر عن موعده."));return;}
+  const W=320,H=64,mx=Math.max(60,...ds.map(x=>x.delay)),pts=ds.map((x,i)=>[ds.length<2?W/2:i*W/(ds.length-1),H-4-(x.delay/mx)*(H-12)]);
+  const line=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1)).join(" ");
+  const svg=sv("svg",{class:"spark",viewBox:`0 0 ${W} ${H}`,preserveAspectRatio:"none","aria-hidden":"true"});
+  svg.append(sv("path",{class:"a",d:line+` L${W} ${H} L0 ${H} Z`}),sv("path",{class:"l",d:line}));
+  box.append(svg,h("div",{class:"kv"},h("span",null,"متوسط التأخير"),h("b",{class:"num"},ago(d.delay_avg))),h("div",{class:"kv"},h("span",null,"أسوأ 5%"),h("b",{class:"num"},ago(d.delay_p95))));
+}
+const HL={libs:null,accs:null};
+async function loadHealth(){
+  await pulse();renderVital();
+  try{HL.accs=await api("accounts/health");}catch(e){HL.accs=null;}
+  try{HL.libs=await api("deps/check");}catch(e){HL.libs=null;}
+  renderAccHealth();renderLibs();renderOem();
+}
+function renderAccHealth(){
+  const box=$("acch-list");box.textContent="";const d=HL.accs;
+  if(!d||!d.accounts.length){box.append(h("p",{class:"hint"},"لا حسابات بعد."));return;}
+  d.accounts.forEach(a=>{const st=a.ok==null?"idle":a.ok?"ok":"bad",p=CONFIG.platforms[a.platform]||{label:a.platform};
+    box.append(h("button",{class:"lib",style:"width:100%;text-align:start",onclick:()=>validateAcc(a.id)},
+      h("span",{class:"st-ic "+st},ic(st==="ok"?"check":st==="bad"?"alert":"clock")),
+      h("span",{class:"nm"},p.label+" · "+a.username,h("small",null,a.ok==null?"لم يُفحص بعد":(a.message||"")+(a.checked_at?" · قبل "+ago(Date.now()/1000-a.checked_at):""))),
+      ic("chev","sm")));});
+  if(d.running)box.append(h("div",{class:"sk"}));
+}
+function renderLibs(){
+  const box=$("libs-list");box.textContent="";const d=HL.libs;
+  if(!d){box.append(h("p",{class:"hint"},"تعذر الفحص"));return;}
+  const busy=DEP_ACTIVE.includes(d.state);
+  if(busy)box.append(h("p",{class:"status"},depsText(S.deps.v)));
+  d.libs.forEach(l=>{
+    const act=l.group==="optional"?h("button",{class:"btn small ghost",style:"flex:none",disabled:busy,onclick:async()=>{try{await api("deps/reinstall",{spec:l.spec});toast("بدأت إعادة التحميل والتثبيت");await depsPoll();setTimeout(loadHealth,1500);}catch(e){toast(e.message);}}},ic("refresh","sm"),l.ok?"إعادة":"تثبيت"):h("span",{class:"tag"},"مضمّنة");
+    box.append(h("div",{class:"lib"},h("span",{class:"st-ic "+(l.ok?"ok":"bad")},ic(l.ok?"check":"x")),
+      h("span",{class:"nm"},l.label+" · "+l.spec,h("small",null,l.ok?("v"+(l.version||"?")):l.error)),act));});
+  if(d.error&&!busy)box.append(h("p",{class:"err-t"},d.error.slice(-200)));
+}
+const OEM=[["سامسونج","الإعدادات ← التطبيقات ← مدير حساباتي ← البطارية ← «غير مقيّد». ثم العناية بالجهاز ← البطارية ← حدود استخدام الخلفية: أخرجه من «التطبيقات النائمة»."],
+  ["شاومي / ريدمي / بوكو","الإعدادات ← التطبيقات ← إدارة التطبيقات ← مدير حساباتي ← توفير البطارية ← «بلا قيود»، وفعّل «التشغيل التلقائي». ثم اقفله في شاشة التطبيقات الأخيرة بسحبه للأسفل."],
+  ["هواوي / أونر","الإعدادات ← البطارية ← تشغيل التطبيقات ← مدير حساباتي ← إدارة يدوية، وفعّل الخيارات الثلاثة."],
+  ["أوبو / ريلمي / ون بلس","الإعدادات ← البطارية ← المزيد ← تحسين استهلاك البطارية ← مدير حساباتي ← «عدم التحسين»، وفعّل «السماح بالنشاط في الخلفية»."],
+  ["أي جهاز آخر","الإعدادات ← التطبيقات ← مدير حساباتي ← البطارية ← «غير مقيّد» أو «لا تحسين»."],
+  ["عند بناء التطبيق","في web-to-app فعّل خيار الإشعار الدائم أو الخدمة الأمامية إن ظهر لنوع Python، فهو يُبقي العملية حيّة. وكل ما فات موعده يُستدرك تلقائياً عند فتح التطبيق خلال مهلة المنشورات الفائتة."]];
+function renderOem(){const b=$("oem-box");if(b.childElementCount)return;OEM.forEach(([k,v])=>b.append(h("p",null,h("b",null,k+": "),v)));}
+async function reconcile(silent){
+  try{const r=await api("health/reconcile",{});
+    if(r.overdue&&!silent)toast("جارٍ استدراك "+r.overdue+" منشوراً فاته موعده");else if(r.overdue)toast("يُستدرك "+r.overdue+" منشوراً فات موعده");
+    if(r.restarted)toast("أُعيد تشغيل المجدول");
+    setTimeout(()=>{pulse();loadGroups();},4000);
+  }catch{}
+}
+
+/* SECTION: SHARE - نشر نصف آلي (فيسبوك الشخصي) */
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true;}catch{}
+  try{const ta=h("textarea",{style:"position:fixed;opacity:0"});ta.value=t;document.body.append(ta);ta.select();const ok=document.execCommand("copy");ta.remove();return ok;}catch{return false;}}
+async function shareNow(g,t){
+  const text=t.text_override||g.text||"";const copied=text?await copyText(text):false;
+  try{
+    if(g.media_id&&navigator.canShare){const r=await fetch("/api/media/"+g.media_id),b=await r.blob(),f=new File([b],g.media_id,{type:b.type});
+      if(navigator.canShare({files:[f]})){await navigator.share({files:[f],text});toast(copied?"نُسخ النص أيضاً، الصقه إن لم يظهر":"اختر فيسبوك وانشر");return;}}
+    if(navigator.share){await navigator.share({text});return;}
+  }catch(e){if(e&&e.name==="AbortError")return;}
+  window.open("https://www.facebook.com/","_blank","noopener");
+  toast(copied?"نُسخ النص. الصقه في فيسبوك"+(g.media_id?" ونزّل الوسائط من زر التنزيل":""):"افتح فيسبوك وانشر");
+}
+
+/* SECTION: AIMEDIA - صور وفيديو عبر Gemini */
+const ASPECTS={image:["9:16","1:1","16:9"],video:["9:16","16:9"]};
+let aiAspect="9:16",aiJob=null;
+function renderAspects(){const b=$("ai-aspects");b.textContent="";(ASPECTS[AI.mode]||[]).forEach(a=>b.append(h("button",{class:"chip-btn num"+(a===aiAspect?" on":""),onclick:()=>{aiAspect=a;renderAspects();}},a)));}
+async function aiMedia(){
+  const prompt=$("ai-topic").value.trim()||S.text.v.trim();
+  if(!prompt){toast("اكتب وصف "+(AI.mode==="video"?"الفيديو":"الصورة"));return;}
+  if(!(ASPECTS[AI.mode]||[]).includes(aiAspect))aiAspect="9:16";
+  AI.busy=true;$("ai-run").disabled=true;const box=$("ai-res");box.textContent="";
+  box.append(h("p",{class:"hint"},AI.mode==="video"?"يُولَّد الفيديو، قد يستغرق دقائق، يمكنك إغلاق الورقة والعودة":"تُولَّد الصورة..."),h("div",{class:"sk",style:"height:180px;border-radius:16px"}));
+  try{const {job}=await api("ai/media",{kind:AI.mode,prompt,aspect:aiAspect});aiJob=job;
+    const kind=AI.mode;
+    const poll=async()=>{if(aiJob!==job)return;let st;try{st=await api("ai/media/"+job);}catch{setTimeout(poll,4000);return;}
+      if(st.state==="running"){setTimeout(poll,3500);return;}
+      AI.busy=false;$("ai-run").disabled=false;box.textContent="";
+      if(st.state!=="done"){box.append(resultBox({ok:false,message:st.error||"فشل التوليد",hint:st.hint}));return;}
+      const url="/api/media/"+st.media_id;
+      box.append(kind==="video"?h("video",{class:"ai-prev",src:url,controls:true,playsinline:true}):h("img",{class:"ai-prev",src:url,alt:"الصورة المولّدة"}),
+        h("div",{class:"row2 mt"},h("button",{class:"btn ok",onclick:()=>{S.media.v={media_id:st.media_id,name:kind==="video"?"فيديو مولّد":"صورة مولّدة",kind};
+          const bad=S.sel.v.filter(id=>{const a=accById(id);return a&&problem(a);});if(bad.length)S.sel.v=S.sel.v.filter(id=>!bad.includes(id));
+          closeSheet();toast("أُرفق بالمنشور");}},ic("clip","sm"),"أرفق بالمنشور"),h("button",{class:"btn ghost",onclick:aiMedia},ic("refresh","sm"),"إعادة")));
+      if(openSh!==$("sh-ai"))toast(kind==="video"?"الفيديو جاهز، افتح «اكتب لي»":"الصورة جاهزة");};
+    setTimeout(poll,2500);
+  }catch(e){AI.busy=false;$("ai-run").disabled=false;box.textContent="";box.append(resultBox({ok:false,message:e.message}));}
+}
+
+/* SECTION: SETTINGS2 - المزوّدون، النماذج، مستودع الوسائط، النسخة الكاملة */
+let AIM=null;
+async function loadModels(force){
+  try{AIM=await api("ai/models"+(force?"?force=1":""));}catch{AIM=null;}
+  const box=$("ox-models");box.textContent="";
+  const ox=AIM&&AIM.oxion,saved=loadSettings.last||{};
+  if(ox&&ox.error)box.append(h("p",{class:"err-t"},ox.error));
+  [["text","نموذج الكتابة"],["web","نموذج الأخبار (بحث ويب)"],["vision","نموذج قراءة الصور"]].forEach(([r,l])=>{
+    const sel=h("select",{id:"ox-m-"+r,dir:"ltr"});const pick=ox&&ox.picks?ox.picks[r]:"";
+    sel.append(h("option",{value:""},"تلقائي"+(pick?" ("+pick+")":"")));
+    const need=r==="web"?"web_search":r==="vision"?"vision":"";
+    ((ox&&ox.list)||[]).filter(m=>!need||m.caps.includes(need)).sort((a,b)=>(a.in+a.out)-(b.in+b.out)).forEach(m=>sel.append(h("option",{value:m.id},m.id+" · $"+((m.in+m.out)*500).toFixed(2)+"/M")));
+    sel.value=saved["oxion_model_"+r]||"";if(sel.value!==(saved["oxion_model_"+r]||""))sel.append(h("option",{value:saved["oxion_model_"+r],selected:true},saved["oxion_model_"+r]));
+    box.append(h("label",{for:"ox-m-"+r},l),sel);});
+  const gm=AIM&&AIM.gemini,dl=$("gm-list");dl.textContent="";((gm&&gm.list)||[]).forEach(i=>dl.append(h("option",{value:i})));
+  $("gm-picks").textContent=gm&&gm.error?gm.error:gm&&gm.picks&&gm.picks.text?`الترشيح التلقائي: كتابة ${gm.picks.text||"—"} · صور ${gm.picks.image||"—"} · فيديو ${gm.picks.video||"—"}`:"";
+}
+async function aiTest(provider,out){const el=$(out);el.textContent="جارٍ التجربة...";
+  try{const r=await api("ai/test",{provider});el.textContent=r.ok?"يعمل · "+r.model+" · «"+r.reply+"»":r.error+(r.hint?" · "+r.hint:"");}catch(e){el.textContent=e.message;}}
+async function relayCheck(){const el=$("relay-r");el.textContent="جارٍ الفحص...";
+  try{await saveRelay();const r=await api("relay/check",{});el.textContent=r.ok?"جاهز · "+r.repo:r.error+(r.hint?" · "+r.hint:"");}catch(e){el.textContent=e.message;}}
+async function saveRelay(){const body={relay_repo:$("set-relay-repo").value.trim()};if($("set-gh-token").value.trim())body.github_token=$("set-gh-token").value.trim();await api("settings",body);$("set-gh-token").value="";}
+async function fullExport(){
+  try{const blob=await api("backup/full",{passphrase:$("bk-pass").value});
+    const f=new Blob([JSON.stringify(blob)],{type:"application/json"}),a=h("a",{href:URL.createObjectURL(f),download:"social-manager-full.json"});
+    document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);$("bk-pass").value="";toast("صُدّرت النسخة المشفّرة");
+  }catch(e){toast(e.message);}}
+async function fullImport(file){
+  try{const blob=JSON.parse(await file.text());const r=await api("backup/full/restore",{passphrase:$("bk-pass").value,blob});
+    $("bk-pass").value="";toast(`استُعيد: ${r.accounts} حساب · ${r.rules} قاعدة · ${r.replies} رد · ${r.groups} منشور`);loadAccounts();loadGroups();loadSettings();
+  }catch(e){toast(e.message);}finally{$("bk-full-file").value="";}}
 
 /* SECTION: DEPS - مكتبات إضافية تُثبَّت بالخلفية */
 const DEP_ACTIVE=["installing","retrying","waiting_network"];
@@ -1290,6 +1780,20 @@ async function init(){
   $("m-file").addEventListener("change",e=>attach(e.target.files[0]));
   $("btn-ai").addEventListener("click",()=>{renderTones();openSheet("sh-ai");});
   $("ai-m-news").addEventListener("click",()=>aiMode("news"));$("ai-m-topic").addEventListener("click",()=>aiMode("topic"));
+  $("ai-m-image").addEventListener("click",()=>aiMode("image"));$("ai-m-video").addEventListener("click",()=>aiMode("video"));
+  $("btn-guide").addEventListener("click",()=>openGuide(guideKey()));
+  document.querySelectorAll("[data-guide]").forEach(b=>b.addEventListener("click",()=>openGuide(b.dataset.guide)));
+  $("clock-chip").addEventListener("click",()=>go("health"));$("sched-chip").addEventListener("click",()=>go("plan"));
+  $("btn-reconcile").addEventListener("click",async()=>{await reconcile(false);setTimeout(loadHealth,4500);});
+  $("btn-battery").addEventListener("click",()=>{$("keepalive").open=true;$("keepalive").scrollIntoView({behavior:reduce?"auto":"smooth"});});
+  $("btn-check-all").addEventListener("click",async()=>{try{await api("accounts/check-all",{});toast("بدأ فحص الحسابات");setTimeout(loadHealth,4000);setTimeout(loadHealth,12000);}catch(e){toast(e.message);}});
+  $("btn-libs").addEventListener("click",loadHealth);
+  $("btn-ox-test").addEventListener("click",async()=>{if($("set-key").value.trim())await saveSettings();aiTest("oxion","ox-test-r");});
+  $("btn-ox-refresh").addEventListener("click",()=>loadModels(true));
+  $("btn-gm-test").addEventListener("click",async()=>{if($("set-gemini").value.trim())await saveSettings();aiTest("gemini","gm-test-r");});
+  $("btn-relay-check").addEventListener("click",relayCheck);
+  $("btn-full-export").addEventListener("click",fullExport);$("btn-full-import").addEventListener("click",()=>{if(($("bk-pass").value||"").length<8){toast("اكتب عبارة المرور أولاً");return;}$("bk-full-file").click();});
+  $("bk-full-file").addEventListener("change",e=>e.target.files[0]&&fullImport(e.target.files[0]));
   $("ai-run").addEventListener("click",()=>aiRun(""));
   $("btn-when").addEventListener("click",openWhen);
   $("when-in").addEventListener("change",e=>{const d=new Date(e.target.value);if(!isNaN(d))S.when.v=d;});
@@ -1313,16 +1817,20 @@ async function init(){
   S.deps=sig({state:"idle",missing:[],features:[]});
   setupFan();renderCredentialFields();
   eff(renderDock);eff(renderFan);eff(renderDial);eff(renderMeta);eff(renderMediaChip);eff(renderPlan);eff(renderBar);eff(renderDeps);
+  eff(renderUpnext);eff(renderHb);eff(renderVital);
+  setInterval(tickNext,1000);
   const clk=()=>{$("clock").textContent=fmtT(new Date());};clk();
   setInterval(()=>{clk();S.tick.v=Date.now();if(+S.when.v<Date.now()+6e4&&page==="home"&&!S.draft.v)S.when.v=defaultWhen();},1000*30);
   await Promise.all([loadCaps(),loadAccounts(),loadGroups(),pulse(),depsPoll()]);
   setInterval(()=>{if(DEP_ACTIVE.includes(S.deps.v.state))depsPoll();},6000);
   const dr=await kvGet("compose");
   if(dr){S.text.v=dr.text||"";$("c-text").value=S.text.v;autoGrow();S.over.v=dr.over||{};S.sel.v=(dr.sel||[]).filter(id=>{const a=accById(id);return a&&a.active&&!problem(a);});}
-  loadDash();
-  setInterval(()=>{if(!document.hidden){pulse();loadGroups();}},30000);
+  loadDash();reconcile(true);
+  setInterval(()=>{if(!document.hidden){pulse();loadGroups();if(page==="health")renderVital();}},30000);
   addEventListener("online",pulse);addEventListener("offline",()=>{S.online.v=false;});
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden){pulse();loadGroups();}});
+  let hiddenAt=0;
+  document.addEventListener("visibilitychange",()=>{if(document.hidden){hiddenAt=Date.now();return;}
+    if(hiddenAt&&Date.now()-hiddenAt>60e3)reconcile(true);pulse();loadGroups();});
   let ptr=null,edge=null;
   addEventListener("touchstart",e=>{const t=e.touches[0];if(page==="plan"&&scrollY<=0)ptr={y:t.clientY};edge=(SUBPARENT[page]&&(t.clientX<26||t.clientX>innerWidth-26))?{x:t.clientX,y:t.clientY}:null;},{passive:true});
   addEventListener("touchmove",e=>{if(!ptr)return;const dy=e.touches[0].clientY-ptr.y;if(dy>0)$("ptr").style.height=Math.min(dy/2,60)+"px";},{passive:true});

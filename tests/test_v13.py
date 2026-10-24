@@ -112,7 +112,7 @@ class PublisherTests(Base):
         self.assertEqual((ts["x"]["status"], ts["x"]["error_code"]), ("failed", "auth_invalid"))
         self.assertEqual(ts["facebook"]["status"], "needs_you")
         view = self.client.get("/api/groups?from=0&to=9999999999").get_json()[0]
-        self.assertEqual(view["state"], "partial" if False else view["state"])
+        self.assertEqual(view["state"], "needs_you")
         self.assertTrue(any(t["hint"] for t in view["targets"]))
         r = self.client.post(f"/api/group-targets/{ts['facebook']['id']}/done", json={})
         self.assertEqual(r.status_code, 200)

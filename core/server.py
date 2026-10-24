@@ -82,6 +82,19 @@ def pwa_file(name):
     return resp
 
 
+FONT_FILES = {"kufi-arabic.woff2", "kufi-latin.woff2", "sora-latin.woff2"}
+
+
+@app.get("/fonts/<name>")
+def font_file(name):
+    """الخطوط محلية: الواجهة كاملة الشكل حتى بدون إنترنت."""
+    if name not in FONT_FILES:
+        return jsonify({"error": "غير موجود"}), 404
+    resp = send_from_directory(os.path.join(UI_DIR, "fonts"), name, mimetype="font/woff2")
+    resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return resp
+
+
 # ---------- لوحة المعلومات ----------
 @app.get("/api/dashboard")
 def dashboard():
@@ -195,8 +208,7 @@ def validate_account(account_id):
         res = errors.classify(e)
         res.update(ok=False, info={})
     db.set_health(account_id, res)
-    detail = res["message"] + (f" · {res['detail']}" if res.get("detail") else "")
-    return jsonify(dict(res, detail=detail))
+    return jsonify(res)
 
 
 # ---------- الأهداف ----------

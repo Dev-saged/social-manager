@@ -3,7 +3,6 @@ import threading
 
 _busy = {}
 _lock = threading.Lock()
-SYNC = False  # الاختبارات تشغّل العمل مباشرة
 
 
 def busy_platforms():
@@ -19,9 +18,6 @@ def is_busy(platform):
 
 def submit(platform, fn):
     """يشغّل fn في خيط المنصة. يعيد False إن كان عاملها مشغولاً."""
-    if SYNC:
-        fn()
-        return True
     with _lock:
         t = _busy.get(platform)
         if t and t.is_alive():

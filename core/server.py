@@ -68,6 +68,18 @@ def home():
     return send_from_directory(UI_DIR, "index.html")
 
 
+PWA_FILES = {"manifest.webmanifest": "application/manifest+json", "sw.js": "text/javascript", "icon.svg": "image/svg+xml"}
+
+
+@app.get("/<name>")
+def pwa_file(name):
+    if name not in PWA_FILES:
+        return jsonify({"error": "غير موجود"}), 404
+    resp = send_from_directory(UI_DIR, name, mimetype=PWA_FILES[name])
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 # ---------- لوحة المعلومات ----------
 @app.get("/api/dashboard")
 def dashboard():

@@ -19,6 +19,7 @@ PKG_DIR = os.path.join(config.DATA_DIR, "pylibs")
 CACHE_DIR = os.path.join(config.DATA_DIR, "pipcache")
 OPTIONAL = [
     ("instagrapi", "instagrapi", "Instagram الشخصي"),
+    ("PIL", "pillow", "صور Instagram"),
     ("googleapiclient", "google-api-python-client", "يوتيوب"),
     ("google_auth_oauthlib", "google-auth-oauthlib", "يوتيوب"),
 ]

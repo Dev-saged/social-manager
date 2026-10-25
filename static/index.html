@@ -13,8 +13,8 @@
 <script>
 /* SECTION: CONFIG - كل ما يخص العلامة والألوان والمنصات هنا فقط */
 const CONFIG={
-  brand:{name:"مدير حساباتي"},
-  version:"1.3.0",
+  brand:{name:"مدير حساباتي",tagline:"ماذا ننشر الآن؟"},
+  version:"1.3.1",
   updateUrl:"https://raw.githubusercontent.com/Dev-saged/social-manager/main/version.json",
   palette:{
     "bg":["oklch(0.93 0.01 70)","oklch(0.12 0.01 60)"],
@@ -59,7 +59,7 @@ document.documentElement.style.setProperty("--f-body",CONFIG.fonts.body);documen
 :root{color-scheme:dark light;--r:18px;--ease:cubic-bezier(.2,.9,.2,1)}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--bg)}
-body{font-family:var(--f-body);background:var(--bg);color:var(--ink);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased;font-size:clamp(14px,3.6vw,15px)}
+body{font-family:var(--f-body);color:var(--ink);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased;font-size:clamp(14px,3.6vw,15px)}
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;min-height:44px;min-width:44px}
 button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
@@ -214,6 +214,7 @@ nav svg{transition:transform .3s var(--ease)}
 .bar.off{background:color-mix(in oklch,var(--accent) 18%,var(--surface-1));border:1px solid var(--accent)}
 .bar.upd{background:color-mix(in oklch,var(--primary) 18%,var(--surface-1));border:1px solid var(--primary)}
 .bar a{color:var(--primary);margin-inline-start:auto}
+#bar-dep{padding:6px 12px;font-size:11.5px}#bar-dep span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .ptr{height:0;overflow:hidden;text-align:center;color:var(--mute);font-size:12px;transition:height .2s}
 #selftest{position:fixed;inset:0;z-index:100;background:var(--bg);padding:20px;overflow:auto;font:13px/1.8 var(--f-num);direction:ltr;white-space:pre-wrap}
 
@@ -370,16 +371,6 @@ details.card[open] summary{margin-bottom:8px}
 
   <!-- ====== كتابة (الرئيسية) ====== -->
   <section class="page on" id="page-home">
-    <div class="composer">
-      <textarea id="c-text" placeholder="اكتب منشورك هنا، سيُنشر على المنصات التي تختارها" aria-label="نص المنشور"></textarea>
-      <div id="media-chip"></div>
-      <div class="tools">
-        <input id="m-file" type="file" hidden accept=".jpg,.jpeg,.png,.webp,.mp4,.mov">
-        <button class="tool" id="btn-attach" aria-label="إرفاق صورة أو فيديو"><svg class="i sm"><use href="#i-clip"/></svg>وسائط</button>
-        <button class="tool ai" id="btn-ai"><svg class="i sm"><use href="#i-spark"/></svg>اكتب لي</button>
-        <span class="count" id="count">0</span>
-      </div>
-    </div>
     <div class="fan" id="fan">
       <svg class="dialc" id="dial" viewBox="0 0 340 340" aria-label="قرص 24 ساعة بالمنشورات المجدولة">
         <circle class="ring-bg" cx="170" cy="170" r="140"/>
@@ -394,8 +385,18 @@ details.card[open] summary{margin-bottom:8px}
       </div>
     </div>
     <div class="next"><small id="next-l">لا منشورات قادمة</small><b id="next-v" class="num">—</b></div>
-    <div class="sw" aria-hidden="true"><svg class="i sm"><use href="#i-up"/></svg><span>اسحب البطاقة للأعلى للجدولة</span></div>
+    <div class="sw" aria-hidden="true"><svg class="i sm"><use href="#i-up"/></svg><span id="sw-t">اسحب البطاقة للأعلى للجدولة</span></div>
     <div class="dock" id="dock" role="group" aria-label="المنصات"></div>
+    <div class="composer">
+      <textarea id="c-text" placeholder="اكتب منشورك هنا، سيُنشر على المنصات التي تختارها" aria-label="نص المنشور"></textarea>
+      <div id="media-chip"></div>
+      <div class="tools">
+        <input id="m-file" type="file" hidden accept=".jpg,.jpeg,.png,.webp,.mp4,.mov">
+        <button class="tool" id="btn-attach" aria-label="إرفاق صورة أو فيديو"><svg class="i sm"><use href="#i-clip"/></svg>وسائط</button>
+        <button class="tool ai" id="btn-ai"><svg class="i sm"><use href="#i-spark"/></svg>اكتب لي</button>
+        <span class="count" id="count">0</span>
+      </div>
+    </div>
     <button class="when" id="btn-when"><svg class="i"><use href="#i-clock"/></svg><span><b id="when-v" class="num"></b><small id="when-s">موعد النشر · اضغط للتعديل أو اسحب على القرص</small></span><svg class="i sm push" style="transform:scaleX(-1)"><use href="#i-chev"/></svg></button>
     <button class="btn go" id="btn-go"><svg class="i sm"><use href="#i-up"/></svg><span id="go-t">جدولة</span></button>
     <div class="upnext" id="upnext"><h2>القادم</h2><div id="up-list"></div></div>
@@ -770,7 +771,7 @@ const strLen=s=>[...s].length;
 const expired=()=>CONFIG.license.expires&&Date.now()>new Date(CONFIG.license.expires).getTime();
 
 /* SECTION: NAV */
-const TITLES={home:CONFIG.brand.name,plan:"الجدول",auto:"التشغيل الآلي",accounts:"الحسابات",more:"المزيد",dash:"النشاط",content:"المولّد السريع",queue:"طابور الموافقة",settings:"الإعدادات",health:"الصحة والموثوقية"};
+const TITLES={home:CONFIG.brand.tagline||CONFIG.brand.name,plan:"الجدول",auto:"التشغيل الآلي",accounts:"الحسابات",more:"المزيد",dash:"النشاط",content:"المولّد السريع",queue:"طابور الموافقة",settings:"الإعدادات",health:"الصحة والموثوقية"};
 const SUBPARENT={dash:"more",content:"more",queue:"more",settings:"more",health:"more"};
 let page="home";
 function go(p){
@@ -810,6 +811,7 @@ function toggleAcc(id){
   S.sel.v=on?S.sel.v.filter(x=>x!==id):[...S.sel.v,id];
   S.cur.v=0;buzz(10);draftSave();
 }
+function autoSel(){if(S.sel.v.length)return;S.sel.v=S.accs.v.filter(a=>a.active&&!problem(a)).map(a=>a.id);}
 function renderDock(){
   const dock=$("dock");dock.textContent="";S.media.v;
   const act=S.accs.v.filter(a=>a.active),per={};
@@ -866,6 +868,7 @@ function renderMeta(){
   $("go-t").textContent=S.draft.v?"حفظ مسودة":"جدولة";
   const list=S.sel.v.map(accById).filter(Boolean),mx=list.length?Math.min(...list.map(a=>capOf(a).max_len)):0;
   const len=strLen(S.text.v),c=$("count");c.textContent=mx?len+"/"+mx:String(len);c.classList.toggle("over",!!mx&&len>mx);
+  $("sw-t").textContent=list.length?"اسحب للأعلى للجدولة على "+list.length+" منصات":"اختر منصة من الشريط لتبدأ";
   const t=S.tick.v,nx=S.groups.v.filter(x=>x.state==="scheduled"&&x.scheduled_at*1000>t).sort((a,b)=>a.scheduled_at-b.scheduled_at)[0];
   NEXT.at=nx?nx.scheduled_at*1000:0;$("next-v").textContent=nx?hms(NEXT.at-Date.now()):"—";$("next-l").textContent=nx?"التالي بعد":"لا منشورات قادمة";
   const sc=S.groups.v.filter(x=>x.state==="scheduled"&&x.scheduled_at*1000>t).length;$("sched-n").textContent=sc;$("sched-chip").style.display=sc?"inline-flex":"none";
@@ -913,7 +916,7 @@ async function submit(){
   submitting=true;
   try{await api("groups",body);buzz([12,30,12]);
     toast(S.draft.v?"حُفظت كمسودة":"جُدولت على "+ids.length+" منصة · "+fmtD(S.when.v)+" "+fmtT(S.when.v));
-    S.text.v="";$("c-text").value="";$("c-text").style.height="";S.media.v=null;S.over.v={};S.sel.v=[];S.draft.v=false;S.aiMeta=null;S.when.v=defaultWhen();kvSet("compose",null);
+    S.text.v="";$("c-text").value="";$("c-text").style.height="";S.media.v=null;S.over.v={};S.sel.v=[];autoSel();S.draft.v=false;S.aiMeta=null;S.when.v=defaultWhen();kvSet("compose",null);
     loadGroups();return true;
   }catch(e){toast(e.message);buzz([20,40,20]);return false;}finally{submitting=false;}
 }
@@ -1746,7 +1749,7 @@ async function fullImport(file){
 const DEP_ACTIVE=["installing","retrying","waiting_network"];
 function depsText(d){
   const f=(d.features||[]).join(" و");
-  if(d.state==="installing")return`${f?"جارٍ تثبيت مكتبات "+f:"جارٍ تحديث المكتبات الإضافية"} (المحاولة ${d.attempt})، قد يطول مع الإنترنت البطيء ويكمل وحده`;
+  if(d.state==="installing")return`${f?"جارٍ تثبيت "+f:"جارٍ تحديث المكتبات"} · المحاولة ${d.attempt}`;
   if(d.state==="retrying")return"تعذّر التحميل بسبب بطء أو انقطاع، تُعاد المحاولة تلقائياً";
   if(d.state==="waiting_network")return"بانتظار عودة الإنترنت لإكمال تثبيت المكتبات";
   if(d.state==="failed")return"فشل التثبيت: "+(d.error||"سبب غير معروف").slice(-160);
@@ -1826,6 +1829,7 @@ async function init(){
   setInterval(()=>{if(DEP_ACTIVE.includes(S.deps.v.state))depsPoll();},6000);
   const dr=await kvGet("compose");
   if(dr){S.text.v=dr.text||"";$("c-text").value=S.text.v;autoGrow();S.over.v=dr.over||{};S.sel.v=(dr.sel||[]).filter(id=>{const a=accById(id);return a&&a.active&&!problem(a);});}
+  autoSel();$("title").textContent=TITLES[page];
   loadDash();reconcile(true);
   setInterval(()=>{if(!document.hidden){pulse();loadGroups();if(page==="health")renderVital();}},30000);
   addEventListener("online",pulse);addEventListener("offline",()=>{S.online.v=false;});

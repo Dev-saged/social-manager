@@ -8,10 +8,11 @@
 وجلب منشورات الصفحات المتابَعة (للمراقبة)، لكن لا يتيح التفاعل التلقائي مع حسابات الأصدقاء.
 """
 import requests
+import config
 from core.errors import ManualShare
 from platforms.base import BasePlatform, RateLimitExceeded, NotSupported
 
-GRAPH = "https://graph.facebook.com/v21.0"
+GRAPH = config.GRAPH_BASE
 
 
 class FacebookPlatform(BasePlatform):

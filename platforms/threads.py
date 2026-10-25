@@ -38,9 +38,20 @@ class ThreadsPlatform(BasePlatform):
     def stories(self, username=None):
         return []
 
-    def validate(self):
-        try:
-            r = requests.get(f"{GRAPH}/me", params={"access_token": self.creds["access_token"]}, timeout=20)
-            return r.ok
-        except Exception:
-            return False
+    def probe(self):
+        r = requests.get(f"{GRAPH}/me", params={"access_token": self.creds["access_token"], "fields": "id,username"}, timeout=20)
+        r.raise_for_status()
+        return {"username": r.json().get("username", "")}
+
+    def needs_refresh(self, now):
+        return now - float(self.creds.get("refreshed_at") or 0) > 7 * 86400
+
+    def refresh_token(self):
+        """رمز Threads طويل الأمد يعيش 60 يوماً ويُجدَّد قبل انتهائه."""
+        r = requests.get(f"{GRAPH.rsplit('/', 1)[0]}/refresh_access_token", timeout=20,
+                         params={"grant_type": "th_refresh_token", "access_token": self.creds["access_token"]})
+        r.raise_for_status()
+        import time
+        creds = dict(self.creds, access_token=r.json()["access_token"], refreshed_at=time.time())
+        self.creds = creds
+        return creds

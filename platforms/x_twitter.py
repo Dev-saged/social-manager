@@ -68,8 +68,8 @@ class XPlatform(BasePlatform):
     def stories(self, username=None):
         return []  # لا توجد حالات على X
 
-    def validate(self):
-        try:
-            return self.client.get_me().data is not None
-        except Exception:
-            return False
+    def probe(self):
+        me = self.client.get_me()
+        if not me or me.data is None:
+            raise ValueError("X لم يُرجع بيانات الحساب")
+        return {"username": getattr(me.data, "username", "")}

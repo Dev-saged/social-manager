@@ -1,20 +1,17 @@
 # session-handoff
 
-## State (v1.2.1)
-- Scheduler v2 complete on branch feature/scheduler-v2, merged to main: multi-platform groups, video, Gemini, rules, IG replies, 7 adapters, UI direction C with 24h dial.
-- 50 unit tests pass; UI self-test at /#test passes; swipe-to-schedule verified in headless Chromium (390x844).
+## State (v1.3.0 on branch feature/v1.3-roadmap, PR #2 awaiting merge into main)
+- Roadmap phases 0-7 done: classified errors + reasons in UI, unified adapter interface, per-platform workers, token refresh, Instagram official (+relay) with personal/session fallback and in-app code entry, Facebook personal manual share, Oxion->Gemini chain with live model picks, Gemini image/video, Thaura removed, health page (heartbeat, catch-up, delays, accounts, libs reinstall), full encrypted backup, local fonts, old-WebView color fallback, upcoming list and C-fan motion.
+- 75 unit tests pass; /#test passes in headless Chromium (dark, light, legacy CSS emulation).
 
 ## Decisions
-- Idempotent claim-before-send; failed never auto-resent; missed grace 12h.
-- Gemini default model gemini-3.8-flash, configurable in settings.
-- Legacy pages kept under "المزيد" with original IDs/functions.
+- Official Instagram is default; media needs public URL -> GitHub relay (owner's token).
+- Facebook personal cannot be automated (Meta policy) -> needs_you + share sheet.
+- Veo shut down 2026-10-22 -> gemini-omni-1.1-flash for video.
 
 ## Open issues
-- Nothing tested against live accounts or live Gemini.
-- instagrapi install on WebToApp Python 3.14 unverified.
-- OEM background killing: user must exempt the app from battery optimization.
-
-- v1.2.0: core pip at build (~6.5MB), extras installed in background on device (core/deps.py), weekly auto-upgrade; requirements-full.txt for fast builds.
+- Not yet run against live accounts/keys on the phone.
+- web-to-app persistent notification for Python projects undocumented; rely on battery exemption + catch-up.
 
 ## Next step
-- Owner: package with web-to-app, add Telegram or Bluesky first, schedule a test post 5 min ahead, then add the rest.
+- Owner: rebuild APK, add Oxion + Gemini keys, test Telegram, then Instagram official (token + relay), then share flow on Facebook.

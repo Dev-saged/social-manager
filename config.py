@@ -4,13 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.3.0"
 
-# ---- Thaura API (توليد التعليقات والمحتوى) ----
-THAURA_API_KEY = os.getenv("THAURA_API_KEY", "")
-THAURA_BASE_URL = "https://backend.thaura.ai/v1"
-THAURA_MODEL = "thaura"
-
+# ---- Oxion (المزوّد الأساسي للذكاء، والبديل Gemini). المفتاحان يُحفظان مشفّرين من الإعدادات ----
+OXION_API_KEY = os.getenv("OXION_API_KEY", "")
 # ---- Gemini (اختياري): المفتاح يُحفظ مشفراً من الإعدادات، أو من البيئة ----
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 

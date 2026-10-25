@@ -44,9 +44,7 @@ class TelegramPlatform(BasePlatform):
     def stories(self, username=None):
         return []
 
-    def validate(self):
-        try:
-            self._call("getMe", timeout=20)
-            return True
-        except Exception:
-            return False
+    def probe(self):
+        me = self._call("getMe", timeout=20)
+        chat = self._call("getChat", {"chat_id": self.creds["chat_id"]}, timeout=20)
+        return {"bot": me.get("username", ""), "chat": chat.get("title") or chat.get("username") or ""}

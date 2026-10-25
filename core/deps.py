@@ -22,6 +22,12 @@ OPTIONAL = [
     ("googleapiclient", "google-api-python-client", "يوتيوب"),
     ("google_auth_oauthlib", "google-auth-oauthlib", "يوتيوب"),
 ]
+# مكتبات مضمّنة في التطبيق: تُفحص فقط (إعادة تثبيتها من هنا لا تغيّر النسخة المضمّنة)
+CORE = [
+    ("flask", "flask", "الخادم المحلي"), ("apscheduler", "apscheduler", "المجدول"),
+    ("cryptography", "cryptography", "التشفير"), ("requests", "requests", "الاتصال"),
+    ("tweepy", "tweepy", "X"), ("dotenv", "python-dotenv", "الإعدادات"), ("tzdata", "tzdata", "المناطق الزمنية"),
+]
 WAITS = [10, 30, 60, 120, 300]
 MAX_ATTEMPTS = 40
 UPGRADE_EVERY = 7 * 86400
@@ -36,6 +42,36 @@ def activate():
     if PKG_DIR not in sys.path:
         sys.path.append(PKG_DIR)
     importlib.invalidate_caches()
+
+
+def optional_specs():
+    return [spec for _, spec, _ in OPTIONAL]
+
+
+def _version(spec):
+    try:
+        from importlib import metadata
+        return metadata.version(spec)
+    except Exception:
+        return ""
+
+
+def check_each():
+    """فحص فعلي: استيراد كل مكتبة وقراءة إصدارها، لا مجرد وجود ملفاتها."""
+    rows = []
+    for group, items in (("core", CORE), ("optional", OPTIONAL)):
+        for mod, spec, label in items:
+            row = {"module": mod, "spec": spec, "label": label, "group": group, "ok": False, "version": "", "error": ""}
+            try:
+                m = importlib.import_module(mod)
+                row["ok"] = True
+                row["version"] = _version(spec) or str(getattr(m, "__version__", ""))
+            except Exception as e:
+                row["error"] = f"{type(e).__name__}: {e}"[:200]
+            rows.append(row)
+    with _lock:
+        st = dict(_state)
+    return {"libs": rows, "state": st["state"], "installing": st.get("specs", []), "error": st.get("error", "")}
 
 
 def missing():
@@ -65,12 +101,14 @@ def _pip(args):
     return pip_main(args), ""
 
 
-def _install_once(specs):
+def _install_once(specs, force=False):
+    """المجلد يُستبدل كاملاً، لذلك تُثبَّت كل المكتبات الاختيارية معاً (من الكاش غالباً) فلا تضيع واحدة."""
     stage = PKG_DIR + ".stage"
     shutil.rmtree(stage, ignore_errors=True)
+    full = sorted(set(specs) | set(optional_specs()))
     code, out = _pip(["install", "--upgrade", "--target", stage, "--cache-dir", CACHE_DIR, "--prefer-binary",
                       "--only-binary=:all:", "--retries", "10", "--timeout", "60",
-                      "--disable-pip-version-check", "--no-input"] + specs)
+                      "--disable-pip-version-check", "--no-input"] + (["--force-reinstall"] if force else []) + full)
     if code != 0:
         shutil.rmtree(stage, ignore_errors=True)
         return False, out[-400:]
@@ -92,7 +130,7 @@ def _run(specs, upgrade):
             continue
         _set(state="installing", attempt=attempt + 1, upgrade=upgrade)
         try:
-            ok, err = _install_once(specs)
+            ok, err = _install_once(specs, force=_state.get("force", False))
         except Exception as e:
             ok, err = False, str(e)[-400:]
         if ok:
@@ -109,14 +147,17 @@ def _run(specs, upgrade):
     _set(state="failed")
 
 
-def start(upgrade=False):
-    """يبدأ التثبيت (أو التحديث) في خيط خلفي إن لم يكن يعمل. يعيد False إن كان يعمل أو لا حاجة."""
-    specs = [spec for _, spec, _ in OPTIONAL] if upgrade else missing()
+def start(upgrade=False, specs=None, force=False):
+    """يبدأ التثبيت (أو التحديث) في خيط خلفي إن لم يكن يعمل. يعيد False إن كان يعمل أو لا حاجة.
+
+    specs+force: إعادة تحميل وتثبيت مكتبة بعينها حتى لو بدت مثبتة (ملفات تالفة أو ناقصة)."""
+    if specs is None:
+        specs = [spec for _, spec, _ in OPTIONAL] if upgrade else missing()
     with _lock:
         if _state["state"] in ("installing", "retrying", "waiting_network") or not specs:
             return False
-        _state.update(state="installing", attempt=0, error="")
-    threading.Thread(target=_run, args=(specs, upgrade), daemon=True).start()
+        _state.update(state="installing", attempt=0, error="", specs=list(specs), force=force)
+    threading.Thread(target=_run, args=(specs, upgrade or force), daemon=True).start()
     return True
 
 

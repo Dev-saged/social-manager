@@ -86,6 +86,48 @@ class BasePlatform(ABC):
     def stories(self, username=None):
         """يجلب حالات (ستوري) حساب محدد حيث تتاح المنصة لذلك."""
 
-    @abstractmethod
+    def probe(self):
+        """يطلب من المنصة طلباً خفيفاً ويرمي الاستثناء الحقيقي عند الفشل. يعيد معلومات اختيارية."""
+        raise NotSupported("فحص الدخول غير متاح لهذه المنصة")
+
+    def check(self):
+        """فحص الدخول بسبب واضح: {ok, code, message, hint, detail, info}."""
+        from core import errors
+        try:
+            info = self.probe() or {}
+            return {"ok": True, "code": "", "message": "بيانات الدخول صحيحة", "hint": "", "detail": "", "info": info}
+        except Exception as e:
+            out = errors.classify(e)
+            out.update(ok=False, info={})
+            return out
+
     def validate(self):
         """يتأكد أن بيانات الدخول شغالة. يعيد True/False."""
+        return self.check()["ok"]
+
+    def refresh_token(self):
+        """يجدد رمز الدخول إن كانت المنصة تدعم ذلك. يعيد بيانات الدخول الجديدة أو None."""
+        return None
+
+    def needs_refresh(self, now):
+        return False
+
+    @classmethod
+    def preflight(cls, text, media_kind, account_type="personal"):
+        """فحص الجاهزية قبل الجدولة: يعيد قائمة أسباب الرفض (فارغة = جاهز)."""
+        c = cls.caps_for(account_type)
+        out = []
+        if not media_kind and not c["text"]:
+            out.append("لا يقبل منشوراً نصياً بدون صورة أو فيديو")
+        if media_kind == "image" and not c["image"]:
+            out.append("لا يدعم الصور")
+        if media_kind == "video" and not c["video"]:
+            out.append("لا يدعم الفيديو")
+        n = len(text or "")
+        if n > c["max_len"]:
+            out.append(f"النص {n} حرفاً والحد {c['max_len']}")
+        return out
+
+    @classmethod
+    def caps_for(cls, account_type="personal"):
+        return dict(cls.capabilities)

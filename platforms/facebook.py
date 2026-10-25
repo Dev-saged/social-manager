@@ -1,10 +1,15 @@
-"""فيسبوك: عبر Meta Graph API (رسمي). يتطلب Page Access Token و page_id.
+"""فيسبوك: وضعان.
+
+- share (حساب شخصي): Meta لا تسمح بالنشر الآلي على الملفات الشخصية منذ 2018، فيُجهَّز المنشور
+  في موعده ويظهر لك «شارك الآن» فتنسخ الأداة النص وتفتح المشاركة وأنت تضغط نشر.
+- personal (صفحة): عبر Meta Graph API (رسمي). يتطلب Page Access Token و page_id.
 
 ملاحظة صريحة: Graph API يتيح النشر والتعليق على منشورات صفحتك أنت،
 وجلب منشورات الصفحات المتابَعة (للمراقبة)، لكن لا يتيح التفاعل التلقائي مع حسابات الأصدقاء.
 """
 import requests
-from platforms.base import BasePlatform, RateLimitExceeded
+from core.errors import ManualShare
+from platforms.base import BasePlatform, RateLimitExceeded, NotSupported
 
 GRAPH = "https://graph.facebook.com/v21.0"
 
@@ -14,9 +19,21 @@ class FacebookPlatform(BasePlatform):
     required_fields = ["access_token", "page_id"]
     capabilities = {"text": True, "image": True, "video": True, "max_len": 60000}
 
+    def __init__(self, account_row):
+        if account_row["account_type"] == "share":
+            self.required_fields = []
+        super().__init__(account_row)
+        self.share = account_row["account_type"] == "share"
+
+    def publish_media(self, text, media_path=None, kind=""):
+        if self.share:
+            raise ManualShare("فيسبوك الشخصي: افتح المنشور واضغط «شارك الآن»")
+        return super().publish_media(text, media_path, kind)
+
     def _graph(self, endpoint, method="GET", **params):
         params["access_token"] = self.creds["access_token"]
-        r = requests.request(method, f"{GRAPH}/{endpoint}", data=params, timeout=30)
+        kw = {"params": params} if method == "GET" else {"data": params}
+        r = requests.request(method, f"{GRAPH}/{endpoint}", timeout=30, **kw)
         r.raise_for_status()
         return r.json()
 
@@ -45,7 +62,7 @@ class FacebookPlatform(BasePlatform):
         r.raise_for_status()
         return str(r.json().get("id", ""))
 
-    def comment(self, post_id, text):
+    def _page_comment(self, post_id, text):
         if not self.comment_limiter.allow():
             raise RateLimitExceeded("تم تجاوز حد التعليقات لهذه الساعة")
         self._graph(f"{post_id}/comments", "POST", message=text)
@@ -72,9 +89,12 @@ class FacebookPlatform(BasePlatform):
     def stories(self, username=None):
         return []  # حالات فيسبوك عبر API الرسمي غير متاحة للجلب
 
-    def validate(self):
-        try:
-            self._graph(f"{self.creds['page_id']}?fields=id")
-            return True
-        except Exception:
-            return False
+    def probe(self):
+        if self.share:
+            return {"mode": "share"}
+        return {"page": self._graph(f"{self.creds['page_id']}", fields="id,name").get("name", "")}
+
+    def comment(self, post_id, text):
+        if self.share:
+            raise NotSupported("فيسبوك الشخصي: التعليق الآلي غير مسموح")
+        return self._page_comment(post_id, text)

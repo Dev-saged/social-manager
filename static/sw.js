@@ -1,5 +1,5 @@
-const V="sm-1.2.1";
-const SHELL=["/","/manifest.webmanifest","/icon.svg"];
+const V="sm-1.3.0";
+const SHELL=["/","/manifest.webmanifest","/icon.svg","/fonts/kufi-arabic.woff2","/fonts/kufi-latin.woff2","/fonts/sora-latin.woff2"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener("fetch",e=>{

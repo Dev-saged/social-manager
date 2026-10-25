@@ -10,10 +10,11 @@ import os
 import threading
 import time
 import requests
+import config
 from core import errors
 from platforms.base import BasePlatform, NotSupported, RateLimitExceeded
 
-GRAPH = "https://graph.facebook.com/v21.0"
+GRAPH = config.GRAPH_BASE
 IG_GRAPH = "https://graph.instagram.com"
 FALLBACK_CODES = {"media_url_needed", "media_unsupported", "permission", "token_expired", "auth_invalid", "not_supported"}
 
@@ -42,6 +43,24 @@ def submit_code(account_id, code):
 def _set_login(account_id, **kw):
     with _logins_lock:
         LOGINS.setdefault(account_id, {"event": threading.Event()}).update(kw)
+
+
+_CONTAINER_HINTS = {
+    "2207082": "فيديو بلا صوت مع مقطع صوتي مضاف: اجعل مستوى صوت الفيديو الأصلي 0",
+    "2207026": "صيغة الفيديو غير مدعومة: استخدم MP4 بترميز H264 وصوت AAC",
+    "2207053": "تعذّر رفع الوسائط: أعد المحاولة بعد قليل",
+    "2207052": "تعذّر على Instagram تنزيل الملف من الرابط العام: تحقق من مستودع الوسائط",
+}
+
+
+def _container_reason(st, status):
+    """سبب رفض الحاوية: رمز Meta الفرعي إن وُجد، وإلا إرشاد الصيغة المعتمدة للريلز."""
+    for code, hint in _CONTAINER_HINTS.items():
+        if code in status:
+            return f"{hint} ({code})"
+    if status and status.upper() not in ("ERROR", "EXPIRED"):
+        return f"Instagram رفض معالجة الملف: {status[:160]}"
+    return f"Instagram رفض الملف ({st}) بلا سبب معلن. الريلز يلزمها MP4 بترميز H264 وصوت AAC"
 
 
 class InstagramPlatform(BasePlatform):
@@ -94,11 +113,12 @@ class InstagramPlatform(BasePlatform):
     def _wait_container(self, cid, video):
         """الفيديو يُعالج عند Meta قبل النشر: فحص كل 10 ثوانٍ حتى 5 دقائق."""
         for _ in range(30 if video else 6):
-            st = self._ig(cid, fields="status_code").get("status_code", "FINISHED")
+            info = self._ig(cid, fields="status_code,status")
+            st = info.get("status_code", "FINISHED")
             if st == "FINISHED":
                 return
             if st in ("ERROR", "EXPIRED"):
-                raise errors.AppError("media_unsupported", f"Instagram رفض معالجة الملف ({st})")
+                raise errors.AppError("media_unsupported", _container_reason(st, str(info.get("status") or "")))
             time.sleep(10 if video else 3)
         raise errors.AppError("server", "انتهت مهلة معالجة الفيديو عند Instagram")
 

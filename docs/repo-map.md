@@ -53,5 +53,6 @@ Keep under 5KB. No code. Update by 2 lines after every change.
 - deps swap installed only missing libs and dropped the others -> always install the full optional set
 
 ## Open issues
-- Live accounts, Oxion and Gemini media untested on device; Meta dashboard token flow from docs + experience
+- Live accounts, Oxion and Gemini media untested on device; IG official guide rewritten 2026-10-25 from Meta docs (Create App > Other > Business > Instagram > Set up > Generate token)
+- v1.3.1: home reordered to C-fan (title, dial+deck, dock, composer), glow fixed (body bg covered .bgfx), default select-all platforms; Graph API v25 via config.GRAPH_BASE; Pillow added to deps
 - Android OEM battery killing needs manual exemption (guide in Health)

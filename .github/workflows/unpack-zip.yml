@@ -1,0 +1,63 @@
+# عند رفع أي ملف .zip في جذر المستودع يُفكّ تلقائياً ويُحذف ويُكوَّم.
+# يعمل مع أي مشروع Gradle (Android/JVM): يبحث عن settings.gradle.kts.
+# .github/ لا تُنسخ أبداً لحماية الـworkflows الموجودة.
+
+name: Unpack ZIP Upload
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: unpack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect and unpack zip
+        run: |
+          shopt -s nullglob
+          zips=( *.zip )
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "No zip found — nothing to do."
+            exit 0
+          fi
+          ZIP="${zips[0]}"
+          echo "Unpacking: $ZIP"
+          rm -rf /tmp/unz && mkdir /tmp/unz
+          unzip -q -o "$ZIP" -d /tmp/unz
+
+          SETTINGS=$(find /tmp/unz -maxdepth 4 -name "settings.gradle.kts" | head -n1)
+          if [ -n "$SETTINGS" ]; then
+            SRC=$(dirname "$SETTINGS")
+            echo "Gradle root: $SRC"
+          else
+            SRC=/tmp/unz
+            echo "Generic project root"
+          fi
+
+          (cd "$SRC" && tar --exclude='./.github' -cf - .) | tar -xmf -
+          git rm -q "$ZIP"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing changed after unpack."
+          else
+            git commit -m "Unpack $ZIP"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+            echo "Done: pushed unpacked source."
+          fi

@@ -43,3 +43,10 @@ Output: no greetings or filler. Max 3 bullets of explanation. One-line summary b
 ## Code hygiene
 - No comments that reveal AI authorship. No purposeless lines. Comments only when necessary, short Arabic.
 - Complete deployable code, no TODOs.
+
+## Token rules (strict)
+- Session start: read ONLY `.claude/session-handoff.md` and `docs/repo-map.md`. Never scan the repo.
+- Locate code with `Grep "<symbol>" docs/code-index.md` (auto-generated, never Read it whole), then Read the file by line range.
+- Never Read a file over 300 lines whole. Never regenerate unchanged content. Targeted edits only.
+- Do not use conversation_search or re-read old chats for context: repo-map + handoff are the memory.
+

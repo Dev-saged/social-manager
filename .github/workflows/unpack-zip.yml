@@ -1,5 +1,6 @@
 # عند رفع أي ملف .zip في جذر المستودع يُفكّ تلقائياً ويُحذف ويُكوَّم.
-# يعمل مع أي مشروع Gradle (Android/JVM): يبحث عن settings.gradle.kts.
+# يزيل أي غلاف مجلد واحد فائض أولاً (شائع عند ضغط مجلد كامل)، بغض النظر عن نوع المشروع.
+# بعدها: لو كان مشروع Gradle (Android/JVM) يبحث عن settings.gradle.kts كمرجع إضافي.
 # .github/ لا تُنسخ أبداً لحماية الـworkflows الموجودة.
 
 name: Unpack ZIP Upload
@@ -39,13 +40,26 @@ jobs:
           rm -rf /tmp/unz && mkdir /tmp/unz
           unzip -q -o "$ZIP" -d /tmp/unz
 
-          SETTINGS=$(find /tmp/unz -maxdepth 4 -name "settings.gradle.kts" | head -n1)
+          # إزالة أي غلاف مجلد واحد فائض (zip فيه مجلد وحيد يحوي كل شيء)
+          ROOT=/tmp/unz
+          while true; do
+            entries=( "$ROOT"/* "$ROOT"/.[!.]* )
+            real=()
+            for e in "${entries[@]}"; do [ -e "$e" ] && real+=("$e"); done
+            if [ "${#real[@]}" -eq 1 ] && [ -d "${real[0]}" ]; then
+              ROOT="${real[0]}"
+            else
+              break
+            fi
+          done
+
+          SETTINGS=$(find "$ROOT" -maxdepth 4 -name "settings.gradle.kts" | head -n1)
           if [ -n "$SETTINGS" ]; then
             SRC=$(dirname "$SETTINGS")
             echo "Gradle root: $SRC"
           else
-            SRC=/tmp/unz
-            echo "Generic project root"
+            SRC="$ROOT"
+            echo "Project root: $SRC"
           fi
 
           (cd "$SRC" && tar --exclude='./.github' -cf - .) | tar -xmf -
@@ -54,6 +68,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
+          if [ -f tools/repomap.py ]; then python3 tools/repomap.py || true; git add -A; fi
           if git diff --cached --quiet; then
             echo "Nothing changed after unpack."
           else

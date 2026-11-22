@@ -1,8 +1,4 @@
-"""مستودع الوسائط: Instagram الرسمي لا يقبل رفع ملف من الجهاز، بل رابطاً عاماً.
-
-يُرفع الملف مؤقتاً إلى مستودع GitHub عام تملكه أنت (رمزك أنت)، ويُعطى رابطه الخام لـ Meta،
-ثم يُحذف بعد النشر. الصور تُحوَّل إلى JPEG لأن Instagram لا يقبل غيره.
-"""
+"""مستودع GitHub العام متوقف لحماية الخصوصية. بديل التخزين الخاص منفصل وغير مفعّل."""
 import base64
 import os
 import tempfile
@@ -45,27 +41,8 @@ def _as_jpeg(path):
 
 
 def upload(path, kind="image"):
-    """يرفع الملف ويعيد (الرابط العام، مقبض الحذف)."""
-    if not configured():
-        raise AppError("media_url_needed")
-    s = settings()
-    src, temp = (_as_jpeg(path) if kind == "image" else (path, False))
-    try:
-        ext = src.rsplit(".", 1)[-1].lower()
-        name = f"relay/{uuid.uuid4().hex}.{ext}"
-        with open(src, "rb") as f:
-            content = base64.b64encode(f.read()).decode()
-        r = requests.put(f"{API}/repos/{s['repo']}/contents/{name}", headers=_headers(), timeout=300,
-                         json={"message": "media relay", "content": content, "branch": s["branch"]})
-        r.raise_for_status()
-        data = r.json()["content"]
-        return data["download_url"], {"path": name, "sha": data["sha"]}
-    finally:
-        if temp:
-            try:
-                os.remove(src)
-            except OSError:
-                pass
+    """أوقف الرفع العام: حذف ملف GitHub لا يمحوه من سجل المستودع."""
+    raise AppError("relay_disabled")
 
 
 def remove(handle):
@@ -80,13 +57,5 @@ def remove(handle):
 
 
 def probe():
-    """يتحقق من الرمز والمستودع (عام، ولديك صلاحية الكتابة)."""
-    s = settings()
-    r = requests.get(f"{API}/repos/{s['repo']}", headers=_headers(), timeout=20)
-    r.raise_for_status()
-    j = r.json()
-    if j.get("private"):
-        raise AppError("permission", "المستودع خاص؛ Meta لا تستطيع قراءة روابطه، اجعله عاماً")
-    if not (j.get("permissions") or {}).get("push"):
-        raise AppError("permission", "الرمز لا يملك صلاحية الكتابة (Contents: Read and write)")
-    return {"repo": j.get("full_name", "")}
+    """لا نفحص صلاحية رفع أوقفناه لحماية الوسائط."""
+    raise AppError("relay_disabled")

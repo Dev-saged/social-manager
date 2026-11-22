@@ -2,7 +2,7 @@
 
 - official: Instagram API with Instagram Login (رسمي، لحسابك الاحترافي Creator/Business، بلا صفحة فيسبوك).
   يتطلب access_token فقط؛ ig_user_id يُستنتج تلقائياً. الوسائط تحتاج رابطاً عاماً عبر مستودع الوسائط (core/relay).
-  إن وُجدت كلمة مرور أو جلسة في نفس الحساب يُستخدم الوضع الشخصي بديلاً تلقائياً عند تعذّر الرسمي.
+  لا يتحول إلى الوضع الشخصي تلقائياً؛ اختر وضع الحساب صراحةً.
 - business: Meta Graph API عبر فيسبوك (قديم، محفوظ كما هو).
 - personal: مكتبة instagrapi (غير رسمية) بكلمة المرور أو بجلسة محفوظة (sessionid)، مع دعم رمز التأكيد والتحقق بخطوتين.
 """
@@ -16,7 +16,6 @@ from platforms.base import BasePlatform, NotSupported, RateLimitExceeded
 
 GRAPH = config.GRAPH_BASE
 IG_GRAPH = "https://graph.instagram.com"
-FALLBACK_CODES = {"media_url_needed", "media_unsupported", "permission", "token_expired", "auth_invalid", "not_supported"}
 
 # تسجيل دخول تفاعلي: الواجهة تستطلع الحالة وترسل الرمز
 LOGINS = {}
@@ -67,6 +66,13 @@ class InstagramPlatform(BasePlatform):
     name = "instagram"
     capabilities = {"text": False, "image": True, "video": True, "max_len": 2200}
     required_fields = []  # تُفحص حسب الوضع في __init__
+
+    @classmethod
+    def preflight(cls, text, media_kind, account_type="personal"):
+        issues = super().preflight(text, media_kind, account_type)
+        if account_type == "official" and media_kind:
+            issues.append(errors.CODES["relay_disabled"][0])
+        return issues
 
     def __init__(self, account_row):
         super().__init__(account_row)
@@ -139,12 +145,6 @@ class InstagramPlatform(BasePlatform):
             return str(self._ig(f"{uid}/media_publish", "POST", creation_id=cid).get("id", ""))
         finally:
             relay.remove(handle)
-
-    def _has_fallback(self):
-        if not (self.creds.get("password") or self.creds.get("sessionid")):
-            return False
-        import importlib.util
-        return importlib.util.find_spec("instagrapi") is not None
 
     def needs_refresh(self, now):
         return self.mode == "official" and now - float(self.creds.get("refreshed_at") or 0) > 7 * 86400
@@ -242,12 +242,7 @@ class InstagramPlatform(BasePlatform):
     # ---------- التنفيذ ----------
     def publish_media(self, text, media_path=None, kind=""):
         if self.mode == "official":
-            try:
-                return self._official_publish(text, media_path, kind)
-            except Exception as e:
-                if self._has_fallback() and errors.classify(e)["code"] in FALLBACK_CODES:
-                    return self._personal_publish(text, media_path, kind)
-                raise
+            return self._official_publish(text, media_path, kind)
         return super().publish_media(text, media_path, kind)
 
     def publish(self, text, media_path=None):
@@ -259,8 +254,9 @@ class InstagramPlatform(BasePlatform):
             media = self._graph(f"{self.creds['ig_user_id']}/media", "POST",
                                 image_url=self.creds.get("public_media_url") or media_path,
                                 caption=text)
-            self._graph(f"{self.creds['ig_user_id']}/media_publish", "POST",
-                        creation_id=media["id"])
+            result = self._graph(f"{self.creds['ig_user_id']}/media_publish", "POST",
+                                 creation_id=media["id"])
+            return str(result.get("id", ""))
         else:
             return self._personal_publish(text, media_path, "image")
 

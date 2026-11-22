@@ -1,4 +1,4 @@
-"""محرك نشر المجموعات: كل منصة هدف مستقل، يُحجز قبل الإرسال، ويُعاد عند انقطاع الشبكة فقط."""
+"""محرك نشر المجموعات: كل منصة هدف مستقل، يُحجز قبل الإرسال، ويُؤجل فقط عند رفض مؤكد بسبب حد المعدل."""
 import time
 from core import database as db
 from core import media
@@ -41,9 +41,10 @@ def run_due(now=None):
     return done
 
 
-def _publish_one(target, retried=False):
+def _publish_one(target):
     group = db.get_group(target["group_id"])
     adapter = None
+    sending = False
     try:
         acc = db.get_account(target["account_id"])
         if not acc or not acc["active"]:
@@ -54,8 +55,11 @@ def _publish_one(target, retried=False):
         adapter = get_adapter(acc["platform"], acc)
         if hasattr(adapter, "needs_refresh"):
             tokens.ensure_fresh(adapter)
+        sending = True
         remote = adapter.publish_media(text, path, group["media_kind"])
-        db.finish_target(target["id"], "published", remote_id=str(remote or ""))
+        if not remote:
+            raise errors.DeliveryUncertain("لم يصل معرّف المنشور من المنصة؛ افحص الحساب قبل إعادة المحاولة")
+        db.finish_target(target["id"], "published", remote_id=str(remote))
         db.record_delay(target["id"], acc["platform"], target["due_at"])
         db.log(acc["platform"], "publish", f"group #{group['id']}")
     except errors.ManualShare as e:
@@ -63,22 +67,23 @@ def _publish_one(target, retried=False):
         db.log(target["platform"], "publish", "بانتظار مشاركتك اليدوية")
     except Exception as e:
         info = errors.classify(e)
-        if info["code"] == "token_expired" and not retried and adapter is not None and tokens.ensure_fresh(adapter, force=True):
-            return _publish_one(target, retried=True)
+        if sending and (info["code"] in ("network", "server", "unknown") or isinstance(e, (KeyError, ValueError)) and not isinstance(e, errors.AppError)):
+            info = errors.classify(errors.AppError("outcome_unknown"))
         _on_error(target, e, info)
     _release_media(target["group_id"])
 
 
 def _on_error(target, exc, info=None):
     info = info or errors.classify(exc)
-    transient = info["retryable"] or net.is_transient(exc)
+    transient = info["retryable"] and info["code"] in ("rate_limited", "local_rate")
     tried = target["attempts"]  # قبل هذه المحاولة (الحجز زاد العدّاد في القاعدة فقط)
     msg = errors.text_of(info)
     if transient and tried < len(BACKOFF):
         wait = BACKOFF[tried]
         db.finish_target(target["id"], "waiting_network", msg, next_try_at=time.time() + wait, error_code=info["code"])
     else:
-        db.finish_target(target["id"], "failed", msg, error_code=info["code"])
+        state = "outcome_unknown" if info["code"] == "outcome_unknown" else "failed"
+        db.finish_target(target["id"], state, msg, error_code=info["code"])
         if info["code"] in ("auth_invalid", "token_expired", "permission", "challenge_required", "two_factor",
                             "bad_password", "session_expired", "action_blocked"):
             db.set_health(target["account_id"], dict(info, ok=False))

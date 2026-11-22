@@ -14,7 +14,7 @@
 /* SECTION: CONFIG - كل ما يخص العلامة والألوان والمنصات هنا فقط */
 const CONFIG={
   brand:{name:"مدير حساباتي",tagline:"ماذا ننشر الآن؟"},
-  version:"1.3.1",
+  version:"1.3.2",
   updateUrl:"https://raw.githubusercontent.com/Dev-saged/social-manager/main/version.json",
   palette:{
     "bg":["oklch(0.93 0.01 70)","oklch(0.12 0.01 60)"],
@@ -34,8 +34,8 @@ const CONFIG={
     instagram:{label:"انستغرام",mono:"IG"},facebook:{label:"فيسبوك",mono:"FB"},x:{label:"X",mono:"X"},
     youtube:{label:"يوتيوب",mono:"YT"},telegram:{label:"تلغرام",mono:"TG"},bluesky:{label:"Bluesky",mono:"BS"},threads:{label:"Threads",mono:"TH"}
   },
-  states:{draft:"مسودة",scheduled:"مجدول",publishing:"جارٍ النشر",waiting:"بانتظار الشبكة",done:"تم النشر",partial:"نُشر جزئياً",failed:"فشل",cancelled:"ملغي",needs_you:"بانتظارك"},
-  targetStates:{pending:"بالانتظار",publishing:"جارٍ النشر",published:"نُشر",failed:"فشل",waiting_network:"إعادة محاولة",missed:"فات الموعد",cancelled:"ملغي",needs_you:"اضغط للنشر"},
+  states:{needs_review:"تحقق من الحساب",draft:"مسودة",scheduled:"مجدول",publishing:"جارٍ النشر",waiting:"بانتظار الشبكة",done:"تم النشر",partial:"نُشر جزئياً",failed:"فشل",cancelled:"ملغي",needs_you:"بانتظارك"},
+  targetStates:{outcome_unknown:"قد يكون نُشر، تحقق أولاً",pending:"بالانتظار",publishing:"جارٍ النشر",published:"نُشر",failed:"فشل",waiting_network:"إعادة محاولة",missed:"فات الموعد",cancelled:"ملغي",needs_you:"اضغط للنشر"},
   accTypes:{instagram:[["official","رسمي (موصى به)"],["personal","شخصي: كلمة مرور أو جلسة"],["business","Business قديم"]],facebook:[["share","حسابي الشخصي (مشاركة)"],["personal","صفحة (API)"]]},
   license:{expires:null}
 };
@@ -578,12 +578,11 @@ details.card[open] summary{margin-bottom:8px}
       <p class="status" id="gm-test-r"></p>
     </div>
     <div class="card">
-      <h2>مستودع الوسائط <small>لنشر الصور والفيديو عبر Instagram الرسمي</small></h2>
-      <p class="hint" style="margin:0 0 6px">Meta لا تقبل رفع ملف من الجوال، بل رابطاً عاماً. يرفع التطبيق الملف لحظة النشر إلى مستودع GitHub عام تملكه ثم يحذفه.</p>
-      <label for="set-relay-repo">المستودع (owner/repo)</label><input id="set-relay-repo" dir="ltr" placeholder="Dev-saged/media-relay">
-      <label for="set-gh-token">رمز GitHub</label><input id="set-gh-token" type="password" dir="ltr" autocomplete="off" placeholder="github_pat_...">
+      <h2>تخزين الوسائط <small>الناقل العام متوقف</small></h2>
+      <p class="hint" style="margin:0 0 6px">أُوقف رفع الوسائط إلى GitHub لأن حذف الملف لا يمحوه من سجل المستودع. البديل الخاص بروابط مؤقتة قيد الإعداد، وليس مفعّلاً. لا يلزم إدخال رمز GitHub.</p>
+      <input id="set-relay-repo" type="hidden"><input id="set-gh-token" type="hidden">
       <p class="hint" id="relay-state"></p>
-      <div class="row2"><button class="guide-btn" data-guide="relay"><svg class="i sm"><use href="#i-key"/></svg>طريقة الإعداد</button><button class="btn small ghost" id="btn-relay-check"><svg class="i sm"><use href="#i-check"/></svg>فحص</button></div>
+      <div class="row2"><button class="guide-btn" data-guide="relay"><svg class="i sm"><use href="#i-key"/></svg>لماذا أوقفناه؟</button><button class="btn small ghost" id="btn-relay-check"><svg class="i sm"><use href="#i-check"/></svg>فحص</button></div>
       <p class="status" id="relay-r"></p>
     </div>
     <div class="card">
@@ -609,7 +608,7 @@ details.card[open] summary{margin-bottom:8px}
       <label for="bk-pass">عبارة المرور (8 أحرف على الأقل، لا تُحفظ)</label><input id="bk-pass" type="password" autocomplete="new-password">
       <div class="row2 mt"><button class="btn small ghost" id="btn-full-export"><svg class="i sm"><use href="#i-lock"/></svg>تصدير مشفّر</button><button class="btn small ghost" id="btn-full-import"><svg class="i sm"><use href="#i-ul"/></svg>استعادة</button></div>
       <input id="bk-full-file" type="file" accept="application/json,.json" hidden>
-      <p class="hint">لنقل كل شيء لجوال جديد. بدون العبارة لا يمكن قراءة الملف، فاحفظها جيداً.</p>
+      <p class="hint">نسخة مشفّرة مساعدة، لا تشمل ملفات الوسائط أو كل جلسات الدخول. لا تحذف التطبيق القديم اعتماداً عليها. احفظ العبارة بأمان.</p>
     </div>
     <button class="btn" onclick="saveSettings()">حفظ الإعدادات</button>
   </section>
@@ -762,6 +761,7 @@ const plat=a=>CONFIG.platforms[a.platform]||{label:a.platform,mono:a.platform.sl
 const capOf=a=>S.caps.v[a.platform]||{text:true,image:true,video:true,max_len:1000};
 const mediaKind=()=>S.media.v?S.media.v.kind:"";
 function problem(a){const c=capOf(a),k=mediaKind();
+  if(a.platform==="instagram"&&a.type==="official")return"نشر الوسائط متوقف لحماية الخصوصية";
   if(!k&&!c.text)return"يحتاج صورة أو فيديو";
   if(k==="image"&&!c.image)return"لا يدعم الصور";
   if(k==="video"&&!c.video)return"لا يدعم الفيديو";
@@ -796,12 +796,12 @@ function onEnter(p){
 }
 
 /* SECTION: COMPOSE - المحرر + المروحة + القرص */
-function draftSave(){clearTimeout(draftSave.t);draftSave.t=setTimeout(()=>kvSet("compose",{text:S.text.v,sel:S.sel.v,over:S.over.v}),600);}
+function draftSave(){clearTimeout(draftSave.t);draftSave.t=setTimeout(()=>kvSet("compose",{text:S.text.v,sel:S.sel.v,over:S.over.v}).catch(()=>{}),600);}
 const MIGRATIONS=[db=>db.createObjectStore("kv")];
 function idb(){return new Promise((ok,no)=>{const r=indexedDB.open("sm",MIGRATIONS.length);
   r.onupgradeneeded=e=>{for(let v=e.oldVersion;v<MIGRATIONS.length;v++)MIGRATIONS[v](r.result);};
   r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});}
-async function kvSet(k,v){try{const d=await idb();d.transaction("kv","readwrite").objectStore("kv").put(v,k);}catch{}}
+async function kvSet(k,v){const d=await idb();try{await new Promise((ok,no)=>{const tx=d.transaction("kv","readwrite");tx.objectStore("kv").put(v,k);tx.oncomplete=ok;tx.onerror=()=>no(tx.error);tx.onabort=()=>no(tx.error);});}finally{d.close();}}
 async function kvGet(k){try{const d=await idb();return await new Promise(ok=>{const q=d.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ok(null);});}catch{return null;}}
 
 function toggleAcc(id){
@@ -902,7 +902,7 @@ async function attach(file){
 }
 
 /* إرسال المنشور */
-let submitting=false;
+let submitting=false,submissionKey=null,submissionSignature=null;
 async function submit(){
   if(submitting)return false;
   if(expired()){toast("انتهى الترخيص");return false;}
@@ -913,10 +913,14 @@ async function submit(){
   const body={text:S.text.v.trim(),account_ids:ids,overrides,scheduled_at:S.when.v.getTime()/1000,draft:S.draft.v,
     source:S.aiMeta?S.aiMeta.source:"manual",meta:S.aiMeta?{title:S.aiMeta.title}:{}};
   if(S.media.v)body.media_id=S.media.v.media_id;
+  const signature=JSON.stringify(body);
+  if(submissionKey&&signature!==submissionSignature&&!confirm("هناك طلب سابق لم تتأكد نتيجته. افحص الجدول أولاً. هل تحققت وتريد إنشاء طلب مختلف؟"))return false;
+  if(signature!==submissionSignature){submissionSignature=signature;submissionKey=crypto.randomUUID?crypto.randomUUID():[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,"0")).join("");}
+  body.request_key=submissionKey;
   submitting=true;
-  try{await api("groups",body);buzz([12,30,12]);
+  try{await kvSet("pendingSubmission",{key:submissionKey,signature:submissionSignature,body});await api("groups",body);await kvSet("pendingSubmission",null);buzz([12,30,12]);
     toast(S.draft.v?"حُفظت كمسودة":"جُدولت على "+ids.length+" منصة · "+fmtD(S.when.v)+" "+fmtT(S.when.v));
-    S.text.v="";$("c-text").value="";$("c-text").style.height="";S.media.v=null;S.over.v={};S.sel.v=[];autoSel();S.draft.v=false;S.aiMeta=null;S.when.v=defaultWhen();kvSet("compose",null);
+    S.text.v="";$("c-text").value="";$("c-text").style.height="";S.media.v=null;S.over.v={};S.sel.v=[];autoSel();S.draft.v=false;S.aiMeta=null;S.when.v=defaultWhen();submissionKey=null;submissionSignature=null;kvSet("compose",null).catch(()=>{});
     loadGroups();return true;
   }catch(e){toast(e.message);buzz([20,40,20]);return false;}finally{submitting=false;}
 }
@@ -946,7 +950,7 @@ function setupFan(){
     if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)){S.cur.v=S.cur.v+(dx<0?1:-1);buzz(8);}
     else if(Math.abs(dx)<8&&Math.abs(dy)<8)openCard(+el.dataset.id);
   };
-  fan.addEventListener("pointerup",end);fan.addEventListener("pointercancel",end);
+  fan.addEventListener("pointerup",end);fan.addEventListener("pointercancel",()=>{if(drag){drag.el.classList.remove("dragging");drag.el.style.transform="";drag.el.style.opacity="";drag=null;}});
   fan.addEventListener("pointerleave",()=>{if(!drag){fan.style.setProperty("--rx","0deg");fan.style.setProperty("--ry","0deg");}});
   if(!reduce)addEventListener("deviceorientation",e=>{if(e.gamma==null||drag)return;
     fan.style.setProperty("--ry",Math.max(-8,Math.min(8,e.gamma/4))+"deg");fan.style.setProperty("--rx",Math.max(-8,Math.min(8,((e.beta||45)-45)/-6))+"deg");},{passive:true});
@@ -1203,8 +1207,8 @@ async function loadPosts(){
     const list=await api("posts");
      $("posts-list").innerHTML=list.length?list.slice(-6).reverse().map(p=>
       `<div class="item"><div class="top"><span class="who">${new Date(p.scheduled_at*1000).toLocaleString("ar",{weekday:"short",hour:"2-digit",minute:"2-digit"})}</span>
-       <span class="tag">${p.status==="pending"?"مجدول":p.status==="published"?"منشور":"فشل"}</span></div>
-       <p>${esc(p.content).slice(0,90)}</p>${p.status==="pending"?`<button class="btn small bad" onclick="cancelPost(${p.id})">إلغاء الجدولة</button>`:""}</div>`).join("")
+       <span class="tag">${({pending:"مجدول",publishing:"جارٍ الإرسال",published:"منشور",outcome_unknown:"قد يكون نُشر، تحقق أولاً",failed:"فشل"})[p.status]||p.status}</span></div>
+       <p>${esc(p.content).slice(0,90)}</p>${p.error?`<p class="hint">${esc(p.error)}</p>`:""}${p.status==="pending"?`<button class="btn small bad" onclick="cancelPost(${p.id})">إلغاء الجدولة</button>`:""}</div>`).join("")
       : `<div class="empty">لا منشورات مجدولة</div>`;
   }catch(e){}
 }
@@ -1252,7 +1256,7 @@ async function loadSettings(){
     loadSettings.last=s;$("set-order").value=s.ai_order||"oxion,gemini";
     $("set-gemini-image").value=s.gemini_image_model||"";$("set-gemini-video").value=s.gemini_video_model||"";
     $("set-relay-repo").value=s.relay_repo||"";
-    $("relay-state").textContent=s.relay_ready?"جاهز ✓ (الرمز محفوظ مشفّراً)":s.has_github_token?"الرمز محفوظ، أدخل المستودع":"غير مفعّل: Instagram الرسمي لن يستطيع نشر الوسائط";
+    $("relay-state").textContent="موقوف لحماية خصوصيتك: حذف وسائط GitHub لا يمحوها من السجل. النشر الرسمي للوسائط متوقف إلى أن يتوفر بديل آمن. لا ترفع ملفات جديدة.";
     loadModels(false);
     const list=await api("targets");
     $("targets-list").innerHTML=list.length?list.map(t=>
@@ -1275,7 +1279,6 @@ async function saveSettings(){
     body.gemini_image_model=$("set-gemini-image").value.trim();body.gemini_video_model=$("set-gemini-video").value.trim();
     body.ai_order=$("set-order").value;
     ["text","web","vision"].forEach(r=>{const el=$("ox-m-"+r);if(el)body["oxion_model_"+r]=el.value;});
-    body.relay_repo=$("set-relay-repo").value.trim();if($("set-gh-token").value.trim())body.github_token=$("set-gh-token").value.trim();
     if($("set-grace").value) body.missed_grace_hours=$("set-grace").value;
     await api("settings",body);$("set-key").value="";$("set-gemini").value="";$("set-gh-token").value="";toast("حُفظت الإعدادات");loadSettings();
   }catch(e){toast(e.message)}
@@ -1295,7 +1298,7 @@ function renderPlan(){
   for(let i=0;i<14;i++){const d=new Date(today.getFullYear(),today.getMonth(),today.getDate()+i),has=all.some(g=>g.status!=="cancelled"&&sameDay(new Date(g.scheduled_at*1000),d));
     strip.append(h("button",{class:"day"+(has?" has":"")+(sameDay(d,S.day.v)?" on":""),onclick:()=>{S.day.v=d;buzz(6);}},
       h("small",null,d.toLocaleDateString(L,{weekday:"short"})),h("b",{class:"num"},d.getDate()),h("i")));}
-  const attn=all.filter(g=>g.state==="draft"||g.state==="failed"||g.state==="partial"||g.state==="needs_you"||g.targets.some(t=>t.status==="needs_you")).sort((a,b)=>a.scheduled_at-b.scheduled_at);
+  const attn=all.filter(g=>g.state==="draft"||g.state==="failed"||g.state==="partial"||g.state==="needs_review"||g.state==="needs_you"||g.targets.some(t=>t.status==="needs_you")).sort((a,b)=>a.scheduled_at-b.scheduled_at);
   const box=$("drafts-box");box.textContent="";
   if(attn.length){box.append(h("div",{class:"peek"},h("h2",null,"تحتاج انتباهك ",h("span",{class:"badge num"},attn.length)),attn.map(g=>h("div",null,h("small",{class:"hint"},fmtD(new Date(g.scheduled_at*1000))),groupCard(g)))));}
   const list=$("plan-list");list.textContent="";
@@ -1323,14 +1326,15 @@ function openGroup(id){
         h("button",{class:"btn small",onclick:()=>shareNow(g,t)},ic("share","sm"),"شارك الآن"),
         g.media_id?h("a",{class:"btn small ghost",href:"/api/media/"+g.media_id,download:g.media_id},ic("dl","sm"),"تنزيل الوسائط"):null,
         h("button",{class:"btn small ok",onclick:async()=>{try{await api("group-targets/"+t.id+"/done",{});toast("سُجّل كمنشور");await loadGroups();openGroup(id);}catch(e){toast(e.message);}}},ic("check","sm"),"تم النشر")):null,
+      t.status==="outcome_unknown"?h("div",{class:"actions"},h("button",{class:"btn small ok",onclick:async()=>{if(!confirm("هل فتحت الحساب ووجدت هذا المنشور منشوراً بالفعل؟ سيُغلق الهدف دون إرسال جديد."))return;try{await api("group-targets/"+t.id+"/done",{confirmed_published:true});toast("سُجّل تأكيدك دون إرسال");await loadGroups();openGroup(id);}catch(e){toast(e.message);}}},ic("check","sm"),"تحققت أنه منشور")):null,
       t.attempts?h("div",{class:"meta num"},"المحاولات: "+t.attempts+(t.next_try_at&&t.status==="pending"?" · التالية "+fmtT(new Date(t.next_try_at*1000)):"")):null,
-      (t.status==="failed"||t.status==="missed")?h("div",{class:"actions"},h("button",{class:"btn small ghost",onclick:async()=>{try{await api("group-targets/"+t.id+"/retry",{});toast("أُعيدت للطابور");await loadGroups();openGroup(id);}catch(e){toast(e.message);}}},ic("refresh","sm"),"إعادة المحاولة")):null);})));
+      (t.status==="failed"||t.status==="missed"||t.status==="outcome_unknown")?h("div",{class:"actions"},h("button",{class:"btn small ghost",onclick:async()=>{try{const uncertain=t.status==="outcome_unknown";if(uncertain&&!confirm("قد يكون المنشور وصل بالفعل. افتح الحساب وافحصه أولاً. هل تحققت من عدم وجوده وتريد إعادة الإرسال؟"))return;await api("group-targets/"+t.id+"/retry",{confirm_unknown:uncertain});toast("أُعيدت للطابور");await loadGroups();openGroup(id);}catch(e){toast(e.message);}}},ic("refresh","sm"),"إعادة المحاولة")):null);})));
   const acts=h("div",{class:"row mt"});
   if(g.state==="draft")acts.append(h("button",{class:"btn ok",onclick:()=>saveGroup(id,ta,wi,true)},ic("check","sm"),"اعتماد وجدولة"));
   else if(edit)acts.append(h("button",{class:"btn",onclick:()=>saveGroup(id,ta,wi,false)},"حفظ التعديل"));
   if(g.state!=="done"&&g.state!=="cancelled"){let armed=false;
     const del=h("button",{class:"btn bad",onclick:async()=>{if(!armed){armed=true;del.textContent="اضغط مرة أخرى للتأكيد";setTimeout(()=>{armed=false;del.textContent=g.state==="draft"?"حذف":"إلغاء المنشور";},3000);return;}
-      try{await api("groups/"+id,{method:"DELETE"});closeSheet();toast("أُلغي المنشور");loadGroups();}catch(e){toast(e.message);}}},g.state==="draft"?"حذف":"إلغاء المنشور");acts.append(del);}
+      try{await api("groups/"+id,{method:"DELETE"});closeSheet();toast("أُوقفت الأهداف غير المرسلة؛ ما بدأ إرساله أو لم تتأكد نتيجته يبقى للمراجعة");loadGroups();}catch(e){toast(e.message);}}},g.state==="draft"?"حذف":"إلغاء المنشور");acts.append(del);}
   body.append(acts);openSheet("sh-group");
 }
 async function saveGroup(id,ta,wi,approve){
@@ -1371,17 +1375,17 @@ function renderReplies(){
     h("div",{class:"meta"},accName(r.account_id)+(r.media_id?" · منشور محدد":"")),
     h("div",{class:"actions"},h("button",{class:"btn small bad",onclick:async()=>{try{await api("reply-rules/"+r.id,{method:"DELETE"});loadAuto();}catch(e){toast(e.message);}}},ic("trash","sm"),"حذف")))));
 }
-const RST={pending:"بالانتظار",sent:"أُرسل",failed:"فشل",skipped:"تخطّى",queued:"في الطابور",done:"تم"};
+const RST={outcome_unknown:"قد يكون أُرسل",sending:"جارٍ الإرسال",pending:"بالانتظار",sent:"أُرسل",failed:"فشل",skipped:"تخطّى",queued:"في الطابور",done:"تم"};
 function renderLog(){
   const box=$("rlog-list");box.textContent="";
   if(!A.log.length){box.append(h("div",{class:"empty"},"لا ردود بعد"));return;}
-  A.log.slice(0,40).forEach(r=>{const bad=r.public_status==="failed"||r.dm_status==="failed";
+  A.log.slice(0,40).forEach(r=>{const uncertain=r.public_status==="outcome_unknown"||r.dm_status==="outcome_unknown";const bad=uncertain||r.public_status==="failed"||r.dm_status==="failed";
     box.append(h("div",{class:"item"},
       h("div",{class:"top"},h("span",{class:"who"},"@"+r.username),h("span",{class:"tag"},RST[r.status]||r.status)),
       h("p",null,r.comment),
       h("div",{class:"meta"},"علني: "+(RST[r.public_status]||r.public_status)+" · خاص: "+(RST[r.dm_status]||r.dm_status)),
       r.error?h("div",{class:"err-t"},r.error):null,
-      bad?h("div",{class:"actions"},h("button",{class:"btn small ghost",onclick:async()=>{try{await api("reply-log/"+r.id+"/retry",{});toast("أُعيدت للطابور");loadAuto();}catch(e){toast(e.message);}}},ic("refresh","sm"),"إعادة المحاولة")):null));});
+      bad?h("div",{class:"actions"},h("button",{class:"btn small ghost",onclick:async()=>{try{if(uncertain&&!confirm("قد يكون الرد وصل بالفعل. افتح الحساب وافحصه أولاً. هل تحققت من عدم وجوده وتريد إعادة الإرسال؟"))return;await api("reply-log/"+r.id+"/retry",{confirm_unknown:uncertain});toast("أُعيدت للطابور");loadAuto();}catch(e){toast(e.message);}}},ic("refresh","sm"),"إعادة المحاولة")):null));});
 }
 /* قاعدة نشر جديدة */
 const RF={kind:"news",times:[],accs:new Set()};
@@ -1429,16 +1433,17 @@ async function exportBackup(){
 }
 async function importBackup(file){
   try{const j=JSON.parse(await file.text());if(j.app!=="social-manager")throw new Error("ملف غير صالح");
+    if(!confirm("ستُستورد القواعد متوقفة والمنشورات مسودات. النسخة لا تتضمن ملفات الوسائط أو جلسات الدخول، فلا تحذف التطبيق القديم اعتماداً عليها. هل تتابع؟"))return;
     const cur=await api("accounts"),map={};
     (j.accounts||[]).forEach(o=>{const m=cur.find(c=>c.platform===o.platform&&c.username===o.username);if(m)map[o.id]=m.id;});
     let ok=0,skip=0;
     for(const r of j.rules||[]){const ids=(r.account_ids||[]).map(i=>map[i]).filter(Boolean);if(!ids.length){skip++;continue;}
-      try{await api("rules",{name:r.name,kind:r.kind,topic:r.topic,times:r.times,account_ids:ids,tone:r.tone,require_approval:r.require_approval});ok++;}catch{skip++;}}
+      try{await api("rules",{name:r.name,kind:r.kind,topic:r.topic,times:r.times,account_ids:ids,tone:r.tone,require_approval:true,active:false});ok++;}catch{skip++;}}
     for(const r of j.replies||[]){const id=map[r.account_id];if(!id){skip++;continue;}
-      try{await api("reply-rules",{account_id:id,name:r.name,media_id:r.media_id,keywords:r.keywords,any_comment:r.any_comment,whole_word:r.whole_word,public_replies:r.public_replies,dm_text:r.dm_text,dm_link:r.dm_link});ok++;}catch{skip++;}}
+      try{await api("reply-rules",{account_id:id,name:r.name,media_id:r.media_id,keywords:r.keywords,any_comment:r.any_comment,whole_word:r.whole_word,public_replies:r.public_replies,dm_text:r.dm_text,dm_link:r.dm_link,active:false});ok++;}catch{skip++;}}
     for(const g of j.groups||[]){const ids=(g.account_ids||[]).map(i=>map[i]).filter(Boolean);if(!ids.length||(!g.draft&&g.scheduled_at*1000<Date.now())){skip++;continue;}
-      try{await api("groups",{text:g.text,account_ids:ids,scheduled_at:g.scheduled_at,draft:g.draft,source:g.source,meta:g.meta});ok++;}catch{skip++;}}
-    toast(`استُورد ${ok} · تخطّي ${skip} (حسابات غير موجودة أو منتهية)`);loadGroups();
+      try{await api("groups",{text:g.text,account_ids:ids,scheduled_at:g.scheduled_at,draft:true,source:g.source,meta:g.meta});ok++;}catch{skip++;}}
+    toast(`استُورد ${ok} كمسودات وقواعد متوقفة · تخطّي ${skip}`);loadGroups();
   }catch(e){toast(e.message);}finally{$("bk-file").value="";}
 }
 
@@ -1512,7 +1517,7 @@ const GUIDES={
     "في الخطوة «Generate access tokens» اضغط `Add account` وسجّل بحسابك الاحترافي. إن رفض، افتح App roles ← Roles ← Add People وأضفه كـ Instagram Tester، ثم اقبل الدعوة من Instagram: الإعدادات ← التطبيقات والمواقع ← دعوات المختبِرين.",
     "بجانب اسم حسابك اضغط `Generate token` ووافق على الصلاحيات، ثم انسخ الرمز الظاهر. صلاحيته 60 يوماً والتطبيق يجدده تلقائياً.",
     "الصلاحيتان المطلوبتان `instagram_business_basic` و`instagram_business_content_publish`، وهما مضافتان افتراضياً. لحسابك أنت يكفي Standard Access بلا App Review.",
-    "الصق الرمز في التطبيق وحده، فيستنتج معرّف الحساب بنفسه. لنشر الصور والفيديو فعّل «مستودع الوسائط» من الإعدادات."],
+    "الصق الرمز في التطبيق وحده، فيستنتج معرّف الحساب بنفسه. نشر الصور والفيديو الرسمي متوقف مؤقتاً لحماية خصوصيتك، ولا ترفعها إلى GitHub."],
     links:[["لوحة تطبيقات Meta","https://developers.facebook.com/apps"]]},
   "instagram:personal":{t:"Instagram الشخصي: كلمة مرور أو جلسة",cta:"كيف يعمل الدخول بكلمة المرور أو الجلسة؟",steps:[
     "اكتب اسم المستخدم وكلمة المرور ثم اضغط إضافة، فتُفتح نافذة تسجيل الدخول تلقائياً.",
@@ -1554,13 +1559,11 @@ const GUIDES={
     "انسخ المفتاح والصقه هنا. Gemini هو البديل التلقائي للكتابة، والمسؤول عن الصور والفيديو.",
     "توليد الصور والفيديو قد يتطلب تفعيل الفوترة في المشروع."],
     links:[["Google AI Studio","https://aistudio.google.com/apikey"]]},
-  "relay":{t:"مستودع الوسائط على GitHub",steps:[
-    "أنشئ مستودعاً عاماً على GitHub، مثلاً `media-relay`، وفعّل خيار README.",
-    "Settings ← Developer settings ← Fine-grained tokens ← Generate new token.",
-    "اختر هذا المستودع فقط، وامنح الصلاحية `Contents: Read and write`.",
-    "الصق الرمز واسم المستودع بصيغة `owner/repo` ثم اضغط «فحص».",
-    "كل ملف يُحذف بعد نشره، لكنه يبقى في سجل المستودع. يمكنك حذف المستودع وإنشاؤه من جديد متى شئت."],
-    links:[["إنشاء مستودع","https://github.com/new"],["إنشاء رمز","https://github.com/settings/personal-access-tokens/new"]]}
+  "relay":{t:"مستودع الوسائط موقوف",steps:[
+    "أوقفنا الرفع إلى مستودع GitHub العام لأن حذف الملف لا يمحوه من سجل المستودع.",
+    "لا تدخل رمزاً جديداً ولا ترفع صوراً أو فيديوهات. نشر الوسائط الرسمي إلى Instagram متوقف لحين توفير بديل آمن.",
+    "إذا استُخدم المستودع سابقاً، افحص السجل قبل اعتبار الوسائط محذوفة؛ لا تحذف التطبيق القديم ولا المستودع قبل خطة نسخ ومراجعة."],links:[]}
+
 };
 function richText(str){const out=[];String(str).split("`").forEach((part,i)=>{if(part)out.push(i%2?h("code",null,part):part);});return out;}
 function openGuide(key){
@@ -1596,7 +1599,6 @@ async function igLogin(id){
 function openCreds(id){
   const a=accById(id);if(!a)return;const b=$("cr-body");b.textContent="";
   let fields=(CREDENTIAL_FIELDS[a.platform]||{})[a.type]||(CREDENTIAL_FIELDS[a.platform]||{}).personal||[];
-  if(a.platform==="instagram"&&a.type==="official")fields=[...fields,...CREDENTIAL_FIELDS.instagram.personal.map(([k,l,t])=>[k,l+" (بديل تلقائي)",t])];
   const ins={};
   b.append(h("h3",null,"تحديث · "+plat(a).label+" "+a.username),h("p",{class:"hint"},"اترك الخانة فارغة للإبقاء على قيمتها الحالية."));
   fields.forEach(([k,l,t])=>{ins[k]=h("input",{type:t,autocomplete:"off",dir:"ltr",id:"cr-"+k});b.append(h("label",{for:"cr-"+k},l),ins[k]);});
@@ -1732,17 +1734,16 @@ async function loadModels(force){
 }
 async function aiTest(provider,out){const el=$(out);el.textContent="جارٍ التجربة...";
   try{const r=await api("ai/test",{provider});el.textContent=r.ok?"يعمل · "+r.model+" · «"+r.reply+"»":r.error+(r.hint?" · "+r.hint:"");}catch(e){el.textContent=e.message;}}
-async function relayCheck(){const el=$("relay-r");el.textContent="جارٍ الفحص...";
-  try{await saveRelay();const r=await api("relay/check",{});el.textContent=r.ok?"جاهز · "+r.repo:r.error+(r.hint?" · "+r.hint:"");}catch(e){el.textContent=e.message;}}
-async function saveRelay(){const body={relay_repo:$("set-relay-repo").value.trim()};if($("set-gh-token").value.trim())body.github_token=$("set-gh-token").value.trim();await api("settings",body);$("set-gh-token").value="";}
+async function relayCheck(){const el=$("relay-r");el.textContent="ناقل GitHub موقوف؛ بديل التخزين الخاص مُحضّر فقط ولم يُفعّل بعد.";}
+
 async function fullExport(){
   try{const blob=await api("backup/full",{passphrase:$("bk-pass").value});
     const f=new Blob([JSON.stringify(blob)],{type:"application/json"}),a=h("a",{href:URL.createObjectURL(f),download:"social-manager-full.json"});
     document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);$("bk-pass").value="";toast("صُدّرت النسخة المشفّرة");
   }catch(e){toast(e.message);}}
 async function fullImport(file){
-  try{const blob=JSON.parse(await file.text());const r=await api("backup/full/restore",{passphrase:$("bk-pass").value,blob});
-    $("bk-pass").value="";toast(`استُعيد: ${r.accounts} حساب · ${r.rules} قاعدة · ${r.replies} رد · ${r.groups} منشور`);loadAccounts();loadGroups();loadSettings();
+  try{const blob=JSON.parse(await file.text());if(!confirm("ستبقى الحسابات الجديدة والقواعد متوقفة والمنشورات مسودات. هذه الصيغة لا تستعيد ملفات الوسائط أو جلسات الدخول. هل تتابع؟"))return;const r=await api("backup/full/restore",{passphrase:$("bk-pass").value,blob});
+    $("bk-pass").value="";toast(r.warning||`استُعيد المحتوى متوقفاً: ${r.accounts} حساب · ${r.rules} قاعدة · ${r.replies} رد · ${r.groups} مسودة`);loadAccounts();loadGroups();loadSettings();
   }catch(e){toast(e.message);}finally{$("bk-full-file").value="";}}
 
 /* SECTION: DEPS - مكتبات إضافية تُثبَّت بالخلفية */
@@ -1824,11 +1825,17 @@ async function init(){
   eff(renderUpnext);eff(renderHb);eff(renderVital);
   setInterval(tickNext,1000);
   const clk=()=>{$("clock").textContent=fmtT(new Date());};clk();
-  setInterval(()=>{clk();S.tick.v=Date.now();if(+S.when.v<Date.now()+6e4&&page==="home"&&!S.draft.v)S.when.v=defaultWhen();},1000*30);
+  setInterval(()=>{clk();S.tick.v=Date.now();if(!submissionKey&&+S.when.v<Date.now()+6e4&&page==="home"&&!S.draft.v)S.when.v=defaultWhen();},1000*30);
   await Promise.all([loadCaps(),loadAccounts(),loadGroups(),pulse(),depsPoll()]);
   setInterval(()=>{if(DEP_ACTIVE.includes(S.deps.v.state))depsPoll();},6000);
   const dr=await kvGet("compose");
   if(dr){S.text.v=dr.text||"";$("c-text").value=S.text.v;autoGrow();S.over.v=dr.over||{};S.sel.v=(dr.sel||[]).filter(id=>{const a=accById(id);return a&&a.active&&!problem(a);});}
+  const pending=await kvGet("pendingSubmission");
+  if(pending&&pending.body){const b=pending.body;submissionKey=pending.key;submissionSignature=pending.signature;
+    S.text.v=b.text||"";$("c-text").value=S.text.v;autoGrow();S.sel.v=b.account_ids||[];S.over.v=b.overrides||{};S.when.v=new Date(b.scheduled_at*1000);S.draft.v=!!b.draft;
+    S.media.v=b.media_id?{media_id:b.media_id,name:"ملف الطلب السابق",kind:/\.(mp4|mov)$/.test(b.media_id)?"video":"image"}:null;
+    S.aiMeta=b.source&&b.source!=="manual"?{source:b.source,title:(b.meta||{}).title||""}:null;
+    toast("حُفظ طلب لم يتأكد وصوله. أعد إرساله كما هو لاسترجاع النتيجة دون تكرار، أو افحص الجدول أولاً");}
   autoSel();$("title").textContent=TITLES[page];
   loadDash();reconcile(true);
   setInterval(()=>{if(!document.hidden){pulse();loadGroups();if(page==="health")renderVital();}},30000);

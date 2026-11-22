@@ -111,7 +111,8 @@ class AutoReplyTests(unittest.TestCase):
     def test_failure_is_final_until_manual_retry(self):
         FakeIG.comments = [comment("1", "مشروع", self.t0 + 5)]
         auto_reply.poll(self.t0 + 10)
-        FakeIG.fail["dm"] = RuntimeError("blocked")
+        from core.errors import AppError
+        FakeIG.fail["dm"] = AppError("permission")
         auto_reply.release(self.t0 + 30)
         row = db.list_reply_log()[0]
         self.assertEqual((row["public_status"], row["dm_status"], row["status"]), ("sent", "failed", "done"))
@@ -140,7 +141,7 @@ class AutoReplyTests(unittest.TestCase):
             c.execute("UPDATE reply_log SET updated_at=?", (self.t0 - 3600,))
         auto_reply.release(self.t0 + 30)
         self.assertNotIn("public", [s[0] for s in FakeIG.sent])
-        self.assertEqual(db.list_reply_log()[0]["public_status"], "failed")
+        self.assertEqual(db.list_reply_log()[0]["public_status"], "outcome_unknown")
 
     def test_api_validation_and_match_test(self):
         bad = self.client.post("/api/reply-rules", json={"account_id": self.acc, "keywords": []})

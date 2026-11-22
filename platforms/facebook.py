@@ -49,8 +49,9 @@ class FacebookPlatform(BasePlatform):
                     timeout=60,
                 )
             r.raise_for_status()
+            return str(r.json().get("post_id") or r.json().get("id", ""))
         else:
-            self._graph(f"{self.creds['page_id']}/feed", "POST", message=text)
+            return str(self._graph(f"{self.creds['page_id']}/feed", "POST", message=text).get("id", ""))
 
     def publish_video(self, text, media_path):
         with open(media_path, "rb") as f:

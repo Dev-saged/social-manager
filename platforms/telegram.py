@@ -21,7 +21,11 @@ class TelegramPlatform(BasePlatform):
         with open(media_path, "rb") as f:
             res = self._call(method, {"chat_id": self.creds["chat_id"], "caption": caption}, {field: f}, timeout=600)
         if text and not caption:
-            self._call("sendMessage", {"chat_id": self.creds["chat_id"], "text": text})
+            try:
+                self._call("sendMessage", {"chat_id": self.creds["chat_id"], "text": text})
+            except Exception as exc:
+                from core.errors import DeliveryUncertain
+                raise DeliveryUncertain("وصلت الوسائط لكن لم يتأكد إرسال النص الإضافي؛ افحص القناة قبل أي إعادة إرسال") from exc
         return str(res.get("message_id", ""))
 
     def publish(self, text, media_path=None):

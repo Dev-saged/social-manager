@@ -32,9 +32,10 @@ class XPlatform(BasePlatform):
     def publish(self, text, media_path=None):
         if media_path:
             media = self.media_api.media_upload(filename=media_path)
-            self.client.create_tweet(text=text, media_ids=[media.media_id_string])
+            response = self.client.create_tweet(text=text, media_ids=[media.media_id_string])
         else:
-            self.client.create_tweet(text=text)
+            response = self.client.create_tweet(text=text)
+        return str((response.data or {}).get("id", ""))
 
     def publish_video(self, text, media_path):
         media = self.media_api.media_upload(

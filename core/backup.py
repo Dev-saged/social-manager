@@ -71,7 +71,7 @@ def restore(passphrase, blob):
     for a in p.get("accounts", []):
         key = (a["platform"], a["username"])
         if key not in current:
-            db.add_account(a["platform"], a["username"], a["credentials"], a["type"])
+            db.add_account(a["platform"], a["username"], a["credentials"], a["type"], active=False)
             current = {(x["platform"], x["username"]): x["id"] for x in db.list_accounts()}
             added += 1
         idmap[a["id"]] = current[key]
@@ -84,19 +84,20 @@ def restore(passphrase, blob):
     for r in p.get("rules", []):
         ids = [idmap[i] for i in json.loads(r.get("account_ids") or "[]") if i in idmap]
         if ids:
-            db.add_rule(r["name"], r["kind"], r["topic"], ids, json.loads(r["times"] or "[]"), r["tone"], r["require_approval"])
+            db.add_rule(r["name"], r["kind"], r["topic"], ids, json.loads(r["times"] or "[]"), r["tone"], True, active=False)
             n_rules += 1
     for r in p.get("replies", []):
         if r["account_id"] in idmap:
             db.add_reply_rule(idmap[r["account_id"]], r["name"], r["media_id"], json.loads(r["keywords"] or "[]"),
-                              r["any_comment"], r["whole_word"], json.loads(r["public_replies"] or "[]"), r["dm_text"], r["dm_link"])
+                              r["any_comment"], r["whole_word"], json.loads(r["public_replies"] or "[]"), r["dm_text"], r["dm_link"], active=False)
             n_replies += 1
     now = time.time()
     for g in p.get("groups", []):
         targets = [dict(t, account_id=idmap[t["account_id"]]) for t in g["targets"] if t["account_id"] in idmap]
         if not targets or (g["status"] == "scheduled" and g["scheduled_at"] < now):
             continue
-        db.create_group(g["text"], "", "", g["scheduled_at"], targets, status=g["status"], source=g["source"],
+        db.create_group(g["text"], "", "", g["scheduled_at"], targets, status="draft", source=g["source"],
                         meta=json.loads(g["meta"] or "{}"))
         n_groups += 1
-    return {"accounts": added, "rules": n_rules, "replies": n_replies, "groups": n_groups}
+    return {"accounts": added, "rules": n_rules, "replies": n_replies, "groups": n_groups, "paused": True,
+            "warning": "الحسابات المستوردة والقواعد متوقفة والمنشورات مسودات. هذه الصيغة لا تستعيد ملفات الوسائط أو جلسات الدخول؛ لا تحذف التطبيق القديم اعتماداً عليها"}

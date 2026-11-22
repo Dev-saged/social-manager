@@ -35,7 +35,8 @@ class UiShellTests(unittest.TestCase):
     def test_pwa_files_served_and_others_blocked(self):
         c = server.app.test_client()
         for name in ("manifest.webmanifest", "sw.js", "icon.svg"):
-            self.assertEqual(c.get("/" + name).status_code, 200, name)
+            with c.get("/" + name) as response:
+                self.assertEqual(response.status_code, 200, name)
         self.assertEqual(c.get("/secret.key").status_code, 404)
         self.assertEqual(c.get("/..%2Fconfig.py").status_code, 404)
 

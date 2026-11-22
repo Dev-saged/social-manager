@@ -182,7 +182,8 @@ class InstagramOfficialTests(Base):
         acc = self.add("instagram", {"access_token": "t", "ig_user_id": "9", "refreshed_at": time.time()}, "official")
         ad = platforms.get("instagram", acc)
         path = media.path_for("b" * 32 + ".jpg")
-        open(path, "wb").write(b"jpg")
+        with open(path, "wb") as f:
+            f.write(b"jpg")
         calls = []
 
         def req(method, url, timeout=0, **kw):
@@ -205,7 +206,7 @@ class InstagramOfficialTests(Base):
         ad = platforms.get("instagram", acc)
         with self.assertRaises(errors.AppError) as cm:
             ad.publish_media("c", __file__, "image")
-        self.assertEqual(cm.exception.code, "media_url_needed")
+        self.assertEqual(cm.exception.code, "relay_disabled")
 
     def test_text_only_is_rejected_before_scheduling(self):
         acc = self.add("instagram", {"access_token": "t"}, "official")
@@ -259,7 +260,8 @@ class DataTests(Base):
     def test_settings_store_secrets_encrypted(self):
         self.client.post("/api/settings", json={"oxion_api_key": "cc_abc", "github_token": "ghp_x", "relay_repo": "me/relay"})
         s = self.client.get("/api/settings").get_json()
-        self.assertTrue(s["has_oxion_key"] and s["has_github_token"] and s["relay_ready"])
+        self.assertTrue(s["has_oxion_key"] and s["has_github_token"] and s["relay_disabled"])
+        self.assertFalse(s["relay_ready"])
         with db._conn() as c:
             raw = " ".join(r[0] for r in c.execute("SELECT value FROM settings"))
         self.assertNotIn("cc_abc", raw)

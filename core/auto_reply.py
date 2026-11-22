@@ -1,13 +1,14 @@
 """الردود التلقائية: تعليق فيه كلمتك المفتاحية يستقبل رداً علنياً ورسالة خاصة.
 
 لا Webhook هنا (التطبيق على جوالك): نفحص التعليقات كل دقيقتين. كل رد يُحجز قبل إرساله
-فلا يتكرر أبداً، وما كانت نتيجته غير مؤكدة يُعلَّم failed ويمكنك إعادته يدوياً.
+ليمنع الإرسال المتزامن؛ ما كانت نتيجته غير مؤكدة يتوقف حتى تفحص الحساب وتؤكد إعادة الإرسال.
 """
 import json
 import random
 import time
 import config
 from core import database as db
+from core import errors
 from core import keywords
 from core import net
 from platforms import get as get_adapter
@@ -74,9 +75,10 @@ def _attempt(reply, part, adapter):
     """يرسل جزءاً واحداً. 'sending' يُسجَّل قبل الإرسال حتى لا يتكرر. يعيد False إن أُجّل."""
     limiter = adapter.reply_limiter if part == "public" else adapter.dm_limiter
     if not limiter.allow():
-        db.set_reply_part(reply["id"], part, "pending", release_at=time.time() + 300)
+        db.defer_reply_part(reply["id"], part)
         return False
-    db.set_reply_part(reply["id"], part, "sending")
+    if not db.claim_reply_part(reply["id"], part):
+        return False
     try:
         if part == "public":
             adapter.reply_to_comment(reply["media_id"], reply["comment_id"], reply["public_text"])
@@ -85,10 +87,14 @@ def _attempt(reply, part, adapter):
         db.set_reply_part(reply["id"], part, "sent")
         db.log(adapter.name, "reply_" + part, f"@{reply['username']}")
     except RateLimitExceeded as e:
-        db.set_reply_part(reply["id"], part, "pending", str(e), release_at=time.time() + 300)
+        db.defer_reply_part(reply["id"], part, str(e))
         return False
     except Exception as e:
-        db.set_reply_part(reply["id"], part, "failed", str(e))
+        info = errors.classify(e)
+        uncertain = info["code"] in ("network", "server", "unknown", "outcome_unknown")
+        state = "outcome_unknown" if uncertain else "failed"
+        message = errors.text_of(errors.classify(errors.AppError("outcome_unknown"))) if uncertain else errors.text_of(info)
+        db.set_reply_part(reply["id"], part, state, message)
         db.log(adapter.name, "reply_" + part, str(e), ok=0)
     return True
 

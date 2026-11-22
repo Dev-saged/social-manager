@@ -45,7 +45,8 @@ class AdapterTests(unittest.TestCase):
     def test_telegram_routes_by_kind_and_splits_long_caption(self):
         a = self.adapter("telegram", {"bot_token": "T", "chat_id": "@c"})
         path = f"{self.tmp.name}/v.mp4"
-        open(path, "wb").write(b"x")
+        with open(path, "wb") as f:
+            f.write(b"x")
         with patch("platforms.telegram.requests.post", return_value=ok({"result": {"message_id": 7}})) as post:
             self.assertEqual(a.publish_media("hi", path, "video"), "7")
             self.assertTrue(post.call_args.args[0].endswith("/sendVideo"))

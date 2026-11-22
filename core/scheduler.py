@@ -13,6 +13,7 @@ from core import publisher
 from core import auto_reply
 from core import auto_rules
 from core import media
+from core import errors
 from platforms import get as get_adapter
 from platforms.base import RateLimitExceeded
 
@@ -26,6 +27,11 @@ def start():
     if _sched is not None:
         return _sched
     db.init_db()
+    if _tick_lock.acquire(blocking=False):
+        try:
+            db.recover_legacy_posts()
+        finally:
+            _tick_lock.release()
     # UTC صريح: أندرويد بلا قاعدة مناطق زمنية، والمهام فترية لا تحتاج منطقة محلية
     _sched = BackgroundScheduler(daemon=True, timezone=datetime.timezone.utc)
     _sched.add_job(tick, "interval", seconds=30, id="tick", max_instances=1, coalesce=True,
@@ -104,19 +110,27 @@ def _drop_local_media(media_path):
 
 
 def _publish_due():
-    for post in db.due_posts():
+    for post in db.claim_legacy_posts():
         acc = db.get_account(post["account_id"])
+        sending = False
         try:
             adapter, acc = _adapter_for(post["account_id"])
             if not adapter:
                 db.mark_post_status(post["id"], "failed", "الحساب غير موجود أو غير مفعّل")
                 continue
-            adapter.publish(post["content"], post["media_path"])
+            sending = True
+            remote = adapter.publish(post["content"], post["media_path"])
+            if not remote:
+                raise errors.DeliveryUncertain()
             db.mark_post_status(post["id"], "published")
             _drop_local_media(post["media_path"])
             db.log(acc["platform"], "publish", f"post #{post['id']}")
         except Exception as e:
-            db.mark_post_status(post["id"], "failed", str(e))
+            info = errors.classify(e)
+            uncertain = sending and info["code"] in ("network", "server", "unknown", "outcome_unknown")
+            if uncertain:
+                info = errors.classify(errors.DeliveryUncertain())
+            db.mark_post_status(post["id"], "outcome_unknown" if uncertain else "failed", errors.text_of(info))
             db.log(acc["platform"] if acc else "system", "publish", str(e), ok=0)
 
 

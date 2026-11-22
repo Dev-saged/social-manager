@@ -35,6 +35,8 @@ def _state(group, targets):
         return "done"
     if "publishing" in st:
         return "publishing"
+    if "outcome_unknown" in st:
+        return "needs_review"
     if "needs_you" in st:
         return "needs_you"
     if "waiting_network" in st:
@@ -76,7 +78,7 @@ def validate_targets(text, media_id, account_ids, overrides):
     platforms._load()
     kind = media.kind_of(media_id) if media_id else ""
     targets, errors = [], []
-    for aid in account_ids:
+    for aid in dict.fromkeys(account_ids):
         acc = db.get_account(aid)
         if not acc:
             errors.append(f"الحساب {aid} غير موجود")
@@ -238,13 +240,8 @@ def ig_code(account_id):
 @bp.post("/api/relay/check")
 def relay_check():
     from core import relay
-    if not relay.configured():
-        return jsonify({"ok": False, "error": "أدخل المستودع ورمز GitHub أولاً"})
-    try:
-        return jsonify(dict(relay.probe(), ok=True))
-    except Exception as e:
-        info = errors_mod.classify(e)
-        return jsonify({"ok": False, "error": errors_mod.text_of(info), "hint": info["hint"]})
+    return jsonify({"ok": False, "code": "relay_disabled", "error": errors_mod.CODES["relay_disabled"][0],
+                    "hint": errors_mod.CODES["relay_disabled"][2]})
 
 
 @bp.get("/api/deps")
@@ -283,6 +280,16 @@ def platform_caps():
 @bp.post("/api/groups")
 def create_group():
     data = request.get_json(force=True)
+    request_key = data.get("request_key")
+    if request_key is not None and (not isinstance(request_key, str) or not 16 <= len(request_key) <= 100):
+        return jsonify({"error": "معرّف الطلب غير صالح"}), 400
+    if request_key:
+        try:
+            existing = db.replay_group_request(request_key, data)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 409
+        if existing is not None:
+            return jsonify({"ok": True, "id": existing, "replayed": True})
     text = (data.get("text") or "").strip()
     media_id = (data.get("media_id") or "").strip()
     account_ids = [int(a) for a in (data.get("account_ids") or []) if str(a).isdigit()]
@@ -304,8 +311,11 @@ def create_group():
     targets, errors = validate_targets(text, media_id, account_ids, overrides if isinstance(overrides, dict) else {})
     if errors:
         return jsonify({"error": "؛ ".join(errors), "errors": errors}), 400
-    gid = db.create_group(text, media_id, media.kind_of(media_id), when, targets, status=status,
-                          source=data.get("source", "manual"), meta=data.get("meta") or {})
+    try:
+        gid = db.create_group(text, media_id, media.kind_of(media_id), when, targets, status=status,
+                              source=data.get("source", "manual"), meta=data.get("meta") or {}, request_key=request_key, request_payload=data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 409
     return jsonify({"ok": True, "id": gid})
 
 
@@ -359,9 +369,10 @@ def delete_group(group_id):
 
 @bp.post("/api/group-targets/<int:target_id>/done")
 def confirm_target(target_id):
-    """أكدت أنك نشرت المنشور بنفسك (فيسبوك الشخصي)."""
+    """تأكيد مشاركة يدوية أو نتيجة عثرت عليها فعلياً في الحساب."""
+    data = request.get_json(silent=True) or {}
     t = db.get_target(target_id)
-    if not t or not db.confirm_manual_target(target_id):
+    if not t or not db.confirm_manual_target(target_id, confirmed_published=data.get("confirmed_published") is True):
         return jsonify({"error": "هذا الهدف لا ينتظر تأكيدك"}), 409
     db.record_delay(target_id, t["platform"], t["due_at"])
     media_id = db.group_media_if_done(t["group_id"])
@@ -373,7 +384,8 @@ def confirm_target(target_id):
 
 @bp.post("/api/group-targets/<int:target_id>/retry")
 def retry_target(target_id):
-    if not db.retry_target(target_id):
+    data = request.get_json(silent=True) or {}
+    if not db.retry_target(target_id, confirm_unknown=data.get("confirm_unknown") is True):
         return jsonify({"error": "لا يمكن إعادة محاولة هذا الهدف"}), 409
     return jsonify({"ok": True})
 
@@ -494,7 +506,7 @@ def add_rule():
         return jsonify({"error": err}), 400
     rid = db.add_rule((data.get("name") or "").strip(), f["kind"], (data.get("topic") or "").strip(),
                       f["account_ids"], f["times"], (data.get("tone") or "").strip(),
-                      data.get("require_approval", True))
+                      data.get("require_approval", True), active=data.get("active", True) is True)
     return jsonify({"ok": True, "id": rid})
 
 

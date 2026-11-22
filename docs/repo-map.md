@@ -15,7 +15,7 @@ Keep under 5KB. No code. Update by 2 lines after every change.
 - core/tokens.py: refresh on need with per-account lock (instagram official, threads)
 - core/llm.py: Oxion -> Gemini chain; core/oxion.py: OpenAI-compatible client, live models, recommend
 - core/gemini.py: Interactions + generateContent fallback, model discovery; core/media_gen.py: image/video jobs
-- core/relay.py: GitHub public repo media relay for Instagram official
+- core/relay.py: ناقل GitHub العام موقوف لحماية الخصوصية
 - core/backup.py: full encrypted backup (PBKDF2 + Fernet)
 - core/deps.py: background pip into DATA_DIR/pylibs (full set every swap), check_each, targeted reinstall
 - core/scheduler.py: UTC interval tick + heartbeat (hb_at) + tick lock + hourly token refresh
@@ -56,3 +56,6 @@ Keep under 5KB. No code. Update by 2 lines after every change.
 - Live accounts, Oxion and Gemini media untested on device; IG official guide rewritten 2026-10-25 from Meta docs (Create App > Other > Business > Instagram > Set up > Generate token)
 - v1.3.1: home reordered to C-fan (title, dial+deck, dock, composer), glow fixed (body bg covered .bgfx), default select-all platforms; Graph API v25 via config.GRAPH_BASE; Pillow added to deps
 - Android OEM battery killing needs manual exemption (guide in Health)
+
+- core/private_relay.py: تحضير ناقل R2 خاص غير مفعّل؛ روابط قراءة مؤقتة وحذف محدد النطاق
+- tools/setup_private_relay.py: خطة تهيئة افتراضية دون تنفيذ، وإنشاء حاوية جديدة فقط بعد الموافقة

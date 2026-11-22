@@ -59,7 +59,7 @@ def add_rule():
         return jsonify({"error": "اكتب رداً علنياً أو رسالة خاصة"}), 400
     rid = db.add_reply_rule(acc["id"], f["name"], str(data.get("media_id") or "").strip(), f["keywords"],
                             data.get("any_comment", False), data.get("whole_word", True),
-                            f["public_replies"], f["dm_text"], f["dm_link"])
+                            f["public_replies"], f["dm_text"], f["dm_link"], active=data.get("active", True) is True)
     return jsonify({"ok": True, "id": rid})
 
 
@@ -96,12 +96,18 @@ def reply_log():
 
 @bp.post("/api/reply-log/<int:reply_id>/retry")
 def retry(reply_id):
+    data = request.get_json(silent=True) or {}
+    confirmed = data.get("confirm_unknown") is True
     with db._conn() as c:
         cur = c.execute(
             "UPDATE reply_log SET status='queued', release_at=?, error='', "
-            "public_status=CASE WHEN public_status='failed' THEN 'pending' ELSE public_status END, "
-            "dm_status=CASE WHEN dm_status='failed' THEN 'pending' ELSE dm_status END "
-            "WHERE id=? AND (public_status='failed' OR dm_status='failed')", (__import__("time").time(), reply_id))
+            "public_status=CASE WHEN public_status IN ('failed','outcome_unknown') THEN 'pending' ELSE public_status END, "
+            "dm_status=CASE WHEN dm_status IN ('failed','outcome_unknown') THEN 'pending' ELSE dm_status END "
+            "WHERE id=? AND (public_status IN ('failed','outcome_unknown') OR dm_status IN ('failed','outcome_unknown')) "
+            "AND (? OR (public_status!='outcome_unknown' AND dm_status!='outcome_unknown')) "
+            "AND EXISTS(SELECT 1 FROM reply_rules r WHERE r.id=reply_log.rule_id AND r.active=1) "
+            "AND EXISTS(SELECT 1 FROM accounts a WHERE a.id=reply_log.account_id AND a.active=1)",
+            (__import__("time").time(), reply_id, confirmed))
         if cur.rowcount != 1:
             return jsonify({"error": "لا يوجد ما يُعاد"}), 409
     return jsonify({"ok": True})

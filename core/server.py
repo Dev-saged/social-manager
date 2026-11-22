@@ -345,7 +345,7 @@ def get_media(media_id):
 @app.get("/api/posts")
 def list_posts():
     return jsonify([
-        {"id": p["id"], "account_id": p["account_id"], "content": p["content"], "scheduled_at": p["scheduled_at"], "status": p["status"]}
+        {"id": p["id"], "account_id": p["account_id"], "content": p["content"], "scheduled_at": p["scheduled_at"], "status": p["status"], "error": p["error"]}
         for p in db.list_scheduled_posts()
     ])
 
@@ -441,7 +441,8 @@ def get_settings():
         "ai_order": db.get_setting("ai_order", "oxion,gemini"),
         "relay_repo": db.get_setting("relay_repo", ""),
         "has_github_token": bool(db.get_secret("github_token")),
-        "relay_ready": relay.configured(),
+        "relay_ready": False,
+        "relay_disabled": True,
         "missed_grace_hours": db.get_setting("missed_grace_hours", "12"),
     })
 

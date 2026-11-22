@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import requests
 import config
-from core import accounts, database as db, media, net, publisher
+from core import accounts, database as db, media, net, publisher, errors
 from core import server
 
 
@@ -79,7 +79,7 @@ class GroupsTests(unittest.TestCase):
 
     def test_failure_is_isolated_and_media_kept_for_retry(self):
         mid = self._video()
-        FakeAdapter.behaviour["x"] = ValueError("bad credentials")
+        FakeAdapter.behaviour["x"] = errors.AppError("auth_invalid")
         gid = self._group(media_id=mid)
         publisher.run_due()
         st = {t["platform"]: t for t in db.group_targets(gid)}
@@ -91,17 +91,17 @@ class GroupsTests(unittest.TestCase):
         publisher.run_due()
         self.assertFalse(os.path.exists(media.path_for(mid)))
 
-    def test_network_error_waits_then_succeeds(self):
+    def test_network_error_requires_review_instead_of_resending(self):
         FakeAdapter.behaviour["x"] = requests.exceptions.ConnectionError("down")
         gid = self._group(platforms=("x",))
         publisher.run_due()
         t = db.group_targets(gid)[0]
-        self.assertEqual(t["status"], "waiting_network")
-        self.assertGreater(t["next_try_at"], time.time())
+        self.assertEqual(t["status"], "outcome_unknown")
         self.assertEqual(publisher.run_due(), 0)
         FakeAdapter.behaviour.clear()
         publisher.run_due(now=time.time() + 120)
-        self.assertEqual(db.group_targets(gid)[0]["status"], "published")
+        self.assertEqual(len(FakeAdapter.calls), 1)
+        self.assertEqual(db.group_targets(gid)[0]["status"], "outcome_unknown")
 
     def test_offline_burns_no_attempts(self):
         self.p_online.stop()
@@ -122,7 +122,7 @@ class GroupsTests(unittest.TestCase):
         with db._conn() as c:
             c.execute("UPDATE post_targets SET status='publishing', updated_at=?", (time.time() - 3600,))
         publisher.run_due()
-        self.assertEqual(db.group_targets(gid)[0]["status"], "failed")
+        self.assertEqual(db.group_targets(gid)[0]["status"], "outcome_unknown")
         self.assertEqual(FakeAdapter.calls, [])
 
     def test_draft_is_not_published_until_approved(self):

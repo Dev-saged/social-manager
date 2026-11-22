@@ -58,7 +58,8 @@ class YouTubePlatform(BasePlatform):
         body = {"snippet": {"title": title[:100], "description": desc, "categoryId": "22"},
                 "status": {"privacyStatus": "public"}}
         media = MediaFileUpload(media_path, chunksize=10 * 1024 * 1024, resumable=True)
-        self._api().videos().insert(part="snippet,status", body=body, media_body=media).execute()
+        result = self._api().videos().insert(part="snippet,status", body=body, media_body=media).execute()
+        return str(result.get("id", ""))
 
     def publish_video(self, text, media_path):
         return self.publish(text, media_path)

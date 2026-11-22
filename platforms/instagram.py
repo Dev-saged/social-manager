@@ -1,7 +1,7 @@
 """انستغرام: ثلاثة أوضاع، والرسمي هو الافتراضي.
 
 - official: Instagram API with Instagram Login (رسمي، لحسابك الاحترافي Creator/Business، بلا صفحة فيسبوك).
-  يتطلب access_token فقط؛ ig_user_id يُستنتج تلقائياً. الوسائط تحتاج رابطاً عاماً عبر مستودع الوسائط (core/relay).
+  يتطلب access_token فقط؛ ig_user_id يُستنتج تلقائياً. الوسائط تُتاح لـMeta برابط قراءة موقّع مؤقت من R2 خاص.
   لا يتحول إلى الوضع الشخصي تلقائياً؛ اختر وضع الحساب صراحةً.
 - business: Meta Graph API عبر فيسبوك (قديم، محفوظ كما هو).
 - personal: مكتبة instagrapi (غير رسمية) بكلمة المرور أو بجلسة محفوظة (sessionid)، مع دعم رمز التأكيد والتحقق بخطوتين.
@@ -71,7 +71,9 @@ class InstagramPlatform(BasePlatform):
     def preflight(cls, text, media_kind, account_type="personal"):
         issues = super().preflight(text, media_kind, account_type)
         if account_type == "official" and media_kind:
-            issues.append(errors.CODES["relay_disabled"][0])
+            from core import relay
+            if not relay.configured():
+                issues.append(errors.CODES["relay_disabled"][0])
         return issues
 
     def __init__(self, account_row):
@@ -133,6 +135,7 @@ class InstagramPlatform(BasePlatform):
             raise errors.AppError("invalid_input", "انستغرام يحتاج صورة أو فيديو")
         from core import relay
         url, handle = relay.upload(media_path, kind or "image")
+        published = False
         try:
             uid = self._uid()
             params = {"caption": text or ""}
@@ -142,9 +145,15 @@ class InstagramPlatform(BasePlatform):
                 params["image_url"] = url
             cid = self._ig(f"{uid}/media", "POST", **params)["id"]
             self._wait_container(cid, kind == "video")
-            return str(self._ig(f"{uid}/media_publish", "POST", creation_id=cid).get("id", ""))
+            post_id = self._ig(f"{uid}/media_publish", "POST", creation_id=cid).get("id")
+            if not post_id:
+                raise errors.DeliveryUncertain("لم يرجع Instagram معرّف المنشور؛ افحص الحساب قبل إعادة المحاولة")
+            published = True
+            return str(post_id)
         finally:
-            relay.remove(handle)
+            # عند نتيجة غير مؤكدة قد يكون Meta ما زال يسحب الملف. تزيله قاعدة اليوم الاحتياطية.
+            if published:
+                relay.remove(handle)
 
     def needs_refresh(self, now):
         return self.mode == "official" and now - float(self.creds.get("refreshed_at") or 0) > 7 * 86400

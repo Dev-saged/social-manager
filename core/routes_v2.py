@@ -240,8 +240,11 @@ def ig_code(account_id):
 @bp.post("/api/relay/check")
 def relay_check():
     from core import relay
-    return jsonify({"ok": False, "code": "relay_disabled", "error": errors_mod.CODES["relay_disabled"][0],
-                    "hint": errors_mod.CODES["relay_disabled"][2]})
+    try:
+        return jsonify(relay.probe())
+    except errors_mod.AppError as e:
+        return jsonify({"ok": False, "code": e.code, "error": str(e),
+                        "hint": errors_mod.CODES[e.code][2]})
 
 
 @bp.get("/api/deps")

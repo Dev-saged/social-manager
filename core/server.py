@@ -14,6 +14,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 import config
 from core import database as db
+from core.errors import AppError
 from core import interaction
 from core import ai_engine
 from platforms import platform_names
@@ -441,8 +442,9 @@ def get_settings():
         "ai_order": db.get_setting("ai_order", "oxion,gemini"),
         "relay_repo": db.get_setting("relay_repo", ""),
         "has_github_token": bool(db.get_secret("github_token")),
-        "relay_ready": False,
-        "relay_disabled": True,
+        **relay.settings(),
+        "relay_ready": relay.configured(),
+        "relay_disabled": not relay.configured(),
         "missed_grace_hours": db.get_setting("missed_grace_hours", "12"),
     })
 
@@ -453,7 +455,12 @@ _PLAIN_SETTINGS = ("gemini_model", "gemini_image_model", "gemini_video_model", "
 
 @app.post("/api/settings")
 def save_settings():
+    from core import relay
     data = request.get_json(force=True)
+    try:
+        relay.configure(data)
+    except AppError as e:
+        return jsonify({"error": str(e), "code": e.code}), 400
     if "persona" in data:
         db.set_setting("persona", data["persona"])
     if data.get("gemini_api_key"):

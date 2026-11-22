@@ -15,6 +15,9 @@ on:
 permissions:
   contents: write
 
+env:
+  VERSION: ${{ inputs.version }}
+
 concurrency:
   group: android-release-${{ github.ref }}
   cancel-in-progress: false
@@ -24,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      - name: Validate version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::version must be X.Y.Z (digits only)"; exit 1; }
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -51,7 +57,7 @@ jobs:
           SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           SIGNING_KEY_ALIAS: social-manager
-        run: ./gradlew --no-daemon :app:assembleRelease -PappVersionName=${{ inputs.version }}
+        run: ./gradlew --no-daemon :app:assembleRelease "-PappVersionName=$VERSION"
       - name: Verify signature and metadata
         run: |
           APK=android/app/build/outputs/apk/release/app-release.apk
@@ -59,8 +65,8 @@ jobs:
           "$BT/apksigner" verify --verbose --print-certs "$APK"
           "$BT/aapt" dump badging "$APK" | head -1
           mkdir -p dist
-          cp "$APK" "dist/social-manager-v${{ inputs.version }}.apk"
-          (cd dist && sha256sum "social-manager-v${{ inputs.version }}.apk" > "social-manager-v${{ inputs.version }}.apk.sha256")
+          cp "$APK" "dist/social-manager-v$VERSION.apk"
+          (cd dist && sha256sum "social-manager-v$VERSION.apk" > "social-manager-v$VERSION.apk.sha256")
       - uses: actions/upload-artifact@v4
         with:
           name: apk
@@ -72,6 +78,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Validate version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::version must be X.Y.Z (digits only)"; exit 1; }
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
@@ -89,7 +98,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: bash android/ci/emulator-check.sh dist/social-manager-v${{ inputs.version }}.apk
+          script: bash android/ci/emulator-check.sh "dist/social-manager-v$VERSION.apk"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -102,6 +111,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Validate version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::version must be X.Y.Z (digits only)"; exit 1; }
       - uses: actions/download-artifact@v4
         with:
           name: apk
@@ -111,14 +123,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          TAG="v${{ inputs.version }}"
+          TAG="v$VERSION"
           printf '%s\n' \
             "نسخة جديدة كاملة من مدير حساباتي (تثبيت جديد، لا ترقية ولا نقل بيانات)." \
             "" \
-            "- ثبّت الملف social-manager-v${{ inputs.version }}.apk على أندرويد 7.0 أو أحدث." \
+            "- ثبّت الملف social-manager-v$VERSION.apk على أندرويد 7.0 أو أحدث." \
             "- التطبيق موقّع بمفتاح الإصدار، ونجح تشغيله على محاكي أندرويد قبل النشر." \
-            "- الإنستغرام الشخصي (instagrapi) غير مدعوم في نسخة أندرويد، والربط الرسمي يعمل." \
-            "- بصمة الملف في social-manager-v${{ inputs.version }}.apk.sha256" > notes.md
+            "- Instagram الرسمي يحتاج رمز API خاصاً به وإعداد R2 خاصاً، ولا يزال اختبار كل حساب مطلوباً. مفاتيح R2 غير مضمّنة في التطبيق." \
+            "- Instagram الشخصي (instagrapi) غير مدعوم في نسخة أندرويد." \
+            "- بصمة الملف في social-manager-v$VERSION.apk.sha256" > notes.md
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
           else

@@ -14,7 +14,7 @@
 /* SECTION: CONFIG - كل ما يخص العلامة والألوان والمنصات هنا فقط */
 const CONFIG={
   brand:{name:"مدير حساباتي",tagline:"ماذا ننشر الآن؟"},
-  version:"1.3.2",
+  version:"2.0.0",
   updateUrl:"https://raw.githubusercontent.com/Dev-saged/social-manager/main/version.json",
   palette:{
     "bg":["oklch(0.93 0.01 70)","oklch(0.12 0.01 60)"],
@@ -578,11 +578,17 @@ details.card[open] summary{margin-bottom:8px}
       <p class="status" id="gm-test-r"></p>
     </div>
     <div class="card">
-      <h2>تخزين الوسائط <small>الناقل العام متوقف</small></h2>
-      <p class="hint" style="margin:0 0 6px">أُوقف رفع الوسائط إلى GitHub لأن حذف الملف لا يمحوه من سجل المستودع. البديل الخاص بروابط مؤقتة قيد الإعداد، وليس مفعّلاً. لا يلزم إدخال رمز GitHub.</p>
+      <h2>تخزين الوسائط <small>حاوية R2 خاصة</small></h2>
+      <p class="hint" style="margin:0 0 6px">ناقل GitHub العام متوقف نهائياً. رابط R2 الموقّع صالح لساعة، ويمكن لمن يملكه فتح الملف خلالها. يُحذف الملف بعد تأكيد النشر، أو بقاعدة عمر الحاوية الاحتياطية. انتهاء الرابط وحده لا يحذف الملف.</p>
       <input id="set-relay-repo" type="hidden"><input id="set-gh-token" type="hidden">
+      <label for="set-r2-account">معرّف حساب Cloudflare</label><input id="set-r2-account" dir="ltr" autocomplete="off" maxlength="32">
+      <label for="set-r2-bucket">اسم حاوية R2 الخاصة</label><input id="set-r2-bucket" dir="ltr" autocomplete="off" maxlength="63">
+      <label for="set-r2-access">معرّف مفتاح الوصول</label><input id="set-r2-access" type="password" dir="ltr" autocomplete="off" placeholder="فارغ للإبقاء على المحفوظ">
+      <label for="set-r2-secret">مفتاح الوصول السري</label><input id="set-r2-secret" type="password" dir="ltr" autocomplete="off" placeholder="فارغ للإبقاء على المحفوظ">
+      <div class="row mt"><label style="margin:0;flex:1;color:var(--ink)" for="set-r2-enabled">تفعيل التخزين الخاص</label><input id="set-r2-enabled" type="checkbox"></div>
+      <p class="hint">المفاتيح تُحفظ مشفّرة على هذا التثبيت فقط، ولا تكون داخل ملف التطبيق. احفظ الإعدادات قبل الفحص. الفحص يرفع صورة صغيرة ثم يحذفها. رسوم الاستخدام بعد الحد المجاني ليست محددة بسقف مالي هنا.</p>
       <p class="hint" id="relay-state"></p>
-      <div class="row2"><button class="guide-btn" data-guide="relay"><svg class="i sm"><use href="#i-key"/></svg>لماذا أوقفناه؟</button><button class="btn small ghost" id="btn-relay-check"><svg class="i sm"><use href="#i-check"/></svg>فحص</button></div>
+      <div class="row2"><button class="guide-btn" data-guide="relay"><svg class="i sm"><use href="#i-key"/></svg>إعداد التخزين الخاص</button><button class="btn small ghost" id="btn-relay-check"><svg class="i sm"><use href="#i-check"/></svg>فحص</button></div>
       <p class="status" id="relay-r"></p>
     </div>
     <div class="card">
@@ -1256,7 +1262,8 @@ async function loadSettings(){
     loadSettings.last=s;$("set-order").value=s.ai_order||"oxion,gemini";
     $("set-gemini-image").value=s.gemini_image_model||"";$("set-gemini-video").value=s.gemini_video_model||"";
     $("set-relay-repo").value=s.relay_repo||"";
-    $("relay-state").textContent="موقوف لحماية خصوصيتك: حذف وسائط GitHub لا يمحوها من السجل. النشر الرسمي للوسائط متوقف إلى أن يتوفر بديل آمن. لا ترفع ملفات جديدة.";
+    $("set-r2-account").value=s.r2_account_id||"";$("set-r2-bucket").value=s.r2_bucket||"";$("set-r2-enabled").checked=!!s.r2_enabled;
+    $("relay-state").textContent=s.relay_ready?"R2 مهيّأ محلياً؛ اضغط فحص للتحقق من الوصول والحذف.":s.has_r2_credentials?"المفاتيح محفوظة؛ تأكد من التفعيل وتوفر مكتبة التخزين.":"أدخل بيانات حاوية خاصة ومفاتيح محدودة بهذه الحاوية، ثم احفظ وافحص.";
     loadModels(false);
     const list=await api("targets");
     $("targets-list").innerHTML=list.length?list.map(t=>
@@ -1280,7 +1287,10 @@ async function saveSettings(){
     body.ai_order=$("set-order").value;
     ["text","web","vision"].forEach(r=>{const el=$("ox-m-"+r);if(el)body["oxion_model_"+r]=el.value;});
     if($("set-grace").value) body.missed_grace_hours=$("set-grace").value;
-    await api("settings",body);$("set-key").value="";$("set-gemini").value="";$("set-gh-token").value="";toast("حُفظت الإعدادات");loadSettings();
+    body.r2_account_id=$("set-r2-account").value.trim();body.r2_bucket=$("set-r2-bucket").value.trim();body.r2_enabled=$("set-r2-enabled").checked;
+    if($("set-r2-access").value.trim())body.r2_access_key_id=$("set-r2-access").value.trim();
+    if($("set-r2-secret").value.trim())body.r2_secret_access_key=$("set-r2-secret").value.trim();
+    await api("settings",body);$("set-key").value="";$("set-gemini").value="";$("set-gh-token").value="";$("set-r2-access").value="";$("set-r2-secret").value="";toast("حُفظت الإعدادات");loadSettings();
   }catch(e){toast(e.message)}
 }
 
@@ -1559,10 +1569,12 @@ const GUIDES={
     "انسخ المفتاح والصقه هنا. Gemini هو البديل التلقائي للكتابة، والمسؤول عن الصور والفيديو.",
     "توليد الصور والفيديو قد يتطلب تفعيل الفوترة في المشروع."],
     links:[["Google AI Studio","https://aistudio.google.com/apikey"]]},
-  "relay":{t:"مستودع الوسائط موقوف",steps:[
-    "أوقفنا الرفع إلى مستودع GitHub العام لأن حذف الملف لا يمحوه من سجل المستودع.",
-    "لا تدخل رمزاً جديداً ولا ترفع صوراً أو فيديوهات. نشر الوسائط الرسمي إلى Instagram متوقف لحين توفير بديل آمن.",
-    "إذا استُخدم المستودع سابقاً، افحص السجل قبل اعتبار الوسائط محذوفة؛ لا تحذف التطبيق القديم ولا المستودع قبل خطة نسخ ومراجعة."],links:[]}
+  "relay":{t:"تخزين R2 الخاص",steps:[
+    "أنشئ حاوية Standard خاصة. أبقِ نطاقات الوصول العام وr2.dev متوقفة. ناقل GitHub العام لا يُستخدم.",
+    "أضف قاعدة لحذف وسائط ephemeral-media/ بعد يوم وإلغاء الرفع المجزأ غير المكتمل بعد يوم. قد يتأخر الحذف لدى Cloudflare.",
+    "أنشئ مفتاح Object Read & Write محدوداً بهذه الحاوية فقط، ثم أدخل معرّف الحساب والحاوية ومفتاحي الوصول هنا.",
+    "فعّل التخزين واحفظ، ثم اضغط فحص. المفاتيح تبقى مشفّرة محلياً؛ لا تضمّنها في المستودع أو ملف التطبيق.",
+    "الرابط الموقّع إذن مؤقت لأي شخص يملكه، وليس تشفيراً طرفاً لطرف. الاستخدام بعد الحصة المجانية له رسوم؛ لا يفرض التطبيق سقفاً مالياً."],links:[["إعداد مفاتيح R2","https://developers.cloudflare.com/r2/api/tokens/"],["الأسعار","https://developers.cloudflare.com/r2/pricing/"]]}
 
 };
 function richText(str){const out=[];String(str).split("`").forEach((part,i)=>{if(part)out.push(i%2?h("code",null,part):part);});return out;}
@@ -1734,7 +1746,8 @@ async function loadModels(force){
 }
 async function aiTest(provider,out){const el=$(out);el.textContent="جارٍ التجربة...";
   try{const r=await api("ai/test",{provider});el.textContent=r.ok?"يعمل · "+r.model+" · «"+r.reply+"»":r.error+(r.hint?" · "+r.hint:"");}catch(e){el.textContent=e.message;}}
-async function relayCheck(){const el=$("relay-r");el.textContent="ناقل GitHub موقوف؛ بديل التخزين الخاص مُحضّر فقط ولم يُفعّل بعد.";}
+async function relayCheck(){const el=$("relay-r");el.textContent="جارٍ فحص الإعدادات المحفوظة بصورة تجريبية صغيرة...";
+  try{const r=await api("relay/check",{});el.textContent=r.ok?"نجح الفحص: القراءة غير الموقّعة ممنوعة، والرابط الموقّع يعمل، وصورة الفحص حُذفت.":(r.error||"فشل الفحص")+(r.hint?" · "+r.hint:"");}catch(e){el.textContent=e.message;}}
 
 async function fullExport(){
   try{const blob=await api("backup/full",{passphrase:$("bk-pass").value});

@@ -1,6 +1,19 @@
 """تصنيف الأخطاء: كل فشل يتحول إلى رمز ثابت ورسالة عربية وتلميح للحل، ومعرفة هل تفيد إعادة المحاولة."""
 import json
+import re
 import socket
+
+
+def redact_private_urls(value):
+    """لا تتحول الروابط الحاملة لإذن قراءة إلى تفاصيل خطأ محفوظة."""
+    text = str(value)
+    def replace(match):
+        url = match.group(0)
+        return '[رابط وسائط مؤقت محجوب]' if '.r2.cloudflarestorage.com' in url.lower() or 'x-amz-' in url.lower() else url
+    text = re.sub(r'''https?://[^\s<>"']+''', replace, text, flags=re.I)
+    return re.sub(r'''(?i)(X-Amz-(?:Signature|Credential|Security-Token)(?:=|%3D))[^&\s<>"']+''',
+                  r'\1[محجوب]', text)
+
 
 # code: (رسالة، تفيد إعادة المحاولة؟، تلميح)
 CODES = {
@@ -26,7 +39,7 @@ CODES = {
     "invalid_input": ("البيانات المُدخلة ناقصة أو غير صحيحة", False, ""),
     "insufficient_funds": ("نفد الرصيد في حساب المزوّد", False, "اشحن الرصيد أو سيُستخدم المزوّد البديل"),
     "needs_you": ("هذا المنشور ينتظر أن تضغط «نشر» بنفسك", False, "افتح المنشور واضغط «شارك الآن»"),
-    "relay_disabled": ("أُوقف مستودع GitHub لحماية خصوصية الوسائط", False, "لا ترفع صوراً أو فيديوهات إليه؛ حذف الملف لا يمحوه من سجل Git. البديل الآمن لم يُفعّل بعد"),
+    "relay_disabled": ("ناقل الوسائط الخاص غير مهيأ أو متوقف حفاظاً على خصوصية الوسائط", False, "أدخل إعدادات R2 ومفاتيح الحاوية الخاصة، ثم فعّل الناقل وافحصه. ناقل GitHub العام لا يُستخدم"),
     "outcome_unknown": ("نتيجة النشر غير مؤكدة، قد يكون المنشور وصل", False, "افحص الحساب أولاً. لن نعيد الإرسال تلقائياً حتى لا يتكرر المنشور"),
     "unknown": ("حدث خطأ غير متوقع", False, "راجع التفاصيل بالأسفل"),
 }
@@ -37,8 +50,8 @@ class AppError(RuntimeError):
 
     def __init__(self, code, detail=""):
         self.code = code if code in CODES else "unknown"
-        self.detail = detail
-        super().__init__(detail or CODES[self.code][0])
+        self.detail = redact_private_urls(detail)
+        super().__init__(self.detail or CODES[self.code][0])
 
 
 class DeliveryUncertain(AppError):
@@ -172,6 +185,7 @@ def classify(exc):
             break
     if code is None:
         code, detail = "unknown", str(exc)[:300]
+    detail = redact_private_urls(detail)
     msg, retry, hint = CODES[code]
     return {"code": code, "message": msg, "hint": hint, "retryable": retry, "detail": detail if detail != msg else ""}
 

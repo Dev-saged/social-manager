@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-APP_VERSION = "1.3.2"
+APP_VERSION = "2.0.0"
 GRAPH_BASE = "https://graph.facebook.com/v25.0"  # v21 يُحذف 2027-01-21
 
 # ---- Oxion (المزوّد الأساسي للذكاء، والبديل Gemini). المفتاحان يُحفظان مشفّرين من الإعدادات ----

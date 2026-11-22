@@ -79,6 +79,7 @@ chaquopy {
             install("pillow")
             install("google-api-python-client")
             install("google-auth-oauthlib")
+            install("boto3>=1.35,<2")
         }
     }
 }

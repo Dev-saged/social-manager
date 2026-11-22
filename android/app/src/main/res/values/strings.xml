@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مدير حساباتي</string>
+    <string name="notif_channel">الخادم المحلي</string>
+    <string name="notif_title">مدير حساباتي يعمل</string>
+    <string name="notif_text">الجدولة والنشر التلقائي فعّالان</string>
+    <string name="starting">جارٍ تشغيل التطبيق…</string>
+    <string name="start_failed">تعذّر تشغيل الخادم المحلي. أغلق التطبيق وافتحه من جديد.</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="saved_to_downloads">تم الحفظ في مجلد التنزيلات</string>
+    <string name="download_failed">تعذّر حفظ الملف</string>
+</resources>

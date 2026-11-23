@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 GRAPH_BASE = "https://graph.facebook.com/v25.0"  # v21 يُحذف 2027-01-21
 
 # ---- Oxion (المزوّد الأساسي للذكاء، والبديل Gemini). المفتاحان يُحفظان مشفّرين من الإعدادات ----
@@ -31,6 +31,9 @@ RATE_LIMITS = {
     "facebook":  {"comments_per_hour": 8, "likes_per_hour": 20, "min_delay_sec": 180, "max_delay_sec": 3600},
     "x":         {"comments_per_hour": 6, "likes_per_hour": 15, "min_delay_sec": 240, "max_delay_sec": 5400},
     "youtube":   {"comments_per_hour": 5, "likes_per_hour": 10, "min_delay_sec": 300, "max_delay_sec": 7200},
+    "linkedin":  {"comments_per_hour": 5, "likes_per_hour": 10, "min_delay_sec": 300, "max_delay_sec": 7200},
+    "tiktok":    {"comments_per_hour": 5, "likes_per_hour": 10, "min_delay_sec": 300, "max_delay_sec": 7200},
+    "pinterest": {"comments_per_hour": 5, "likes_per_hour": 10, "min_delay_sec": 300, "max_delay_sec": 7200},
 }
 
 # ---- الشخصية الافتراضية للتعليقات (تُعدّل من الإعدادات بالواجهة) ----

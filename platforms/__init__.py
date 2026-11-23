@@ -14,6 +14,9 @@ def _load():
     from platforms.telegram import TelegramPlatform
     from platforms.bluesky import BlueskyPlatform
     from platforms.threads import ThreadsPlatform
+    from platforms.linkedin import LinkedInPlatform
+    from platforms.tiktok import TikTokPlatform
+    from platforms.pinterest import PinterestPlatform
     ADAPTERS = {
         "instagram": InstagramPlatform,
         "facebook": FacebookPlatform,
@@ -22,6 +25,9 @@ def _load():
         "telegram": TelegramPlatform,
         "bluesky": BlueskyPlatform,
         "threads": ThreadsPlatform,
+        "linkedin": LinkedInPlatform,
+        "tiktok": TikTokPlatform,
+        "pinterest": PinterestPlatform,
     }
 
 
@@ -33,7 +39,7 @@ def get(platform, account_row):
 
 
 def platform_names():
-    return ["instagram", "facebook", "x", "youtube", "telegram", "bluesky", "threads"]
+    return ["instagram", "facebook", "x", "youtube", "telegram", "bluesky", "threads", "linkedin", "tiktok", "pinterest"]
 
 
 def capabilities():

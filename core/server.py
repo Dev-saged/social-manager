@@ -38,6 +38,9 @@ ACCOUNT_FIELDS = {
     ("telegram", "personal"): {"bot_token", "chat_id"},
     ("bluesky", "personal"): {"identifier", "app_password"},
     ("threads", "personal"): {"access_token", "user_id"},
+    ("linkedin", "personal"): {"access_token"},
+    ("tiktok", "personal"): {"access_token"},
+    ("pinterest", "personal"): {"access_token", "board_id"},
 }
 
 # حالة بناء الطابور (تُقرأ من الواجهة بالاستقصاء)
@@ -148,7 +151,7 @@ def add_account():
     credentials = {k: str(v).strip() for k, v in credentials.items() if str(v).strip()}
     if (platform, account_type) == ("instagram", "personal") and not (credentials.get("password") or credentials.get("sessionid")):
         return jsonify({"error": "أدخل كلمة المرور أو sessionid"}), 400
-    if account_type == "official" or platform == "threads":
+    if account_type == "official" or platform in ("threads", "tiktok", "pinterest"):
         import time as _t
         credentials["refreshed_at"] = _t.time()
     db.add_account(platform, username, credentials, account_type)

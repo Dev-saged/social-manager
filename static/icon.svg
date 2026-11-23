@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#14110d"/><circle cx="256" cy="256" r="150" fill="none" stroke="#5b4a2e" stroke-width="10"/><g stroke="#f2b84b" stroke-width="14" stroke-linecap="round"><path d="M256 80v36M256 396v36M80 256h36M396 256h36" opacity=".6"/></g><path d="M256 256V150" stroke="#f2b84b" stroke-width="18" stroke-linecap="round"/><path d="M256 256l72 44" stroke="#f2b84b" stroke-width="18" stroke-linecap="round" opacity=".7"/><circle cx="256" cy="256" r="16" fill="#f2b84b"/><circle cx="256" cy="106" r="20" fill="#e5635b"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="نبض فلسطين">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#081e19"/><stop offset="1" stop-color="#071713"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <g transform="translate(512 512) scale(.94) translate(-512 -512) translate(-8 8)">
+    <mask id="pc" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <path d="M346 500H420L468 400L542 596L592 470H624" fill="none" stroke="#000" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="684" cy="470" r="48" fill="#000"/>
+    </mask>
+    <path d="M315.6 606A236 236 0 1 1 431.6 706.8Q378 734 296 748Q326 690 315.6 606Z" fill="#f0eddc" mask="url(#pc)"/>
+    <circle cx="684" cy="470" r="32" fill="#df6b5b"/>
+  </g>
+</svg>

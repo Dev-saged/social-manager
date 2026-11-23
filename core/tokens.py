@@ -43,7 +43,7 @@ def refresh_due():
     from platforms import get as get_adapter
     done = 0
     for acc in db.list_accounts(active_only=True):
-        if acc["platform"] not in ("instagram", "threads"):
+        if acc["platform"] not in ("instagram", "threads", "tiktok", "pinterest"):
             continue
         try:
             adapter = get_adapter(acc["platform"], acc)

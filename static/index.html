@@ -14,7 +14,7 @@
 /* SECTION: CONFIG - كل ما يخص العلامة والألوان والمنصات هنا فقط */
 const CONFIG={
   brand:{name:"مدير حساباتي",tagline:"ماذا ننشر الآن؟"},
-  version:"2.0.0",
+  version:"2.1.0",
   updateUrl:"https://raw.githubusercontent.com/Dev-saged/social-manager/main/version.json",
   palette:{
     "bg":["oklch(0.93 0.01 70)","oklch(0.12 0.01 60)"],
@@ -32,7 +32,8 @@ const CONFIG={
   fonts:{body:"'Noto Kufi Arabic',system-ui,sans-serif",num:"'Sora','Noto Kufi Arabic',system-ui,sans-serif"},
   platforms:{
     instagram:{label:"انستغرام",mono:"IG"},facebook:{label:"فيسبوك",mono:"FB"},x:{label:"X",mono:"X"},
-    youtube:{label:"يوتيوب",mono:"YT"},telegram:{label:"تلغرام",mono:"TG"},bluesky:{label:"Bluesky",mono:"BS"},threads:{label:"Threads",mono:"TH"}
+    youtube:{label:"يوتيوب",mono:"YT"},telegram:{label:"تلغرام",mono:"TG"},bluesky:{label:"Bluesky",mono:"BS"},threads:{label:"Threads",mono:"TH"},
+    linkedin:{label:"لينكدإن",mono:"in"},tiktok:{label:"تيك توك",mono:"TK"},pinterest:{label:"بنترست",mono:"PIN"}
   },
   states:{needs_review:"تحقق من الحساب",draft:"مسودة",scheduled:"مجدول",publishing:"جارٍ النشر",waiting:"بانتظار الشبكة",done:"تم النشر",partial:"نُشر جزئياً",failed:"فشل",cancelled:"ملغي",needs_you:"بانتظارك"},
   targetStates:{outcome_unknown:"قد يكون نُشر، تحقق أولاً",pending:"بالانتظار",publishing:"جارٍ النشر",published:"نُشر",failed:"فشل",waiting_network:"إعادة محاولة",missed:"فات الموعد",cancelled:"ملغي",needs_you:"اضغط للنشر"},
@@ -1095,7 +1096,10 @@ const CREDENTIAL_FIELDS={
   youtube:{personal:[["client_secrets_path","مسار client_secrets.json (اختياري)","text"]]},
   telegram:{personal:[["bot_token","Bot Token","password"],["chat_id","Chat ID أو @القناة","text"]]},
   bluesky:{personal:[["identifier","المعرّف (user.bsky.social)","text"],["app_password","App Password","password"]]},
-  threads:{personal:[["access_token","Threads Access Token","password"],["user_id","Threads User ID","text"]]}
+  threads:{personal:[["access_token","Threads Access Token","password"],["user_id","Threads User ID","text"]]},
+  linkedin:{personal:[["access_token","LinkedIn Access Token","password"],["person_urn","Person URN (اختياري، يُكتشف تلقائياً)","text"],["visibility","الخصوصية PUBLIC أو CONNECTIONS (اختياري)","text"]]},
+  tiktok:{personal:[["access_token","TikTok Access Token","password"],["privacy_level","الخصوصية (افتراضي SELF_ONLY)","text"],["client_key","Client Key (للتجديد التلقائي، اختياري)","text"],["client_secret","Client Secret (اختياري)","password"],["refresh_token","Refresh Token (اختياري)","password"]]},
+  pinterest:{personal:[["access_token","Pinterest Access Token","password"],["board_id","Board ID","text"],["app_id","App ID (للتجديد التلقائي، اختياري)","text"],["app_secret","App Secret (اختياري)","password"],["refresh_token","Refresh Token (اختياري)","password"]]}
 };
 function renderCredentialFields(){
   const types=CONFIG.accTypes[platform];
@@ -1519,6 +1523,27 @@ const GUIDES={
     "من User Token Generator في لوحة التطبيق أنشئ رمزاً وانسخ معه User ID.",
     "التطبيق يجدد الرمز أسبوعياً قبل انتهاء صلاحيته (60 يوماً)."],
     links:[["لوحة تطبيقات Meta","https://developers.facebook.com/apps"]]},
+  "linkedin":{t:"لينكدإن: رمز الوصول (ينشر على حسابك الشخصي)",steps:[
+    "افتح `developer.linkedin.com` وأنشئ تطبيقاً جديداً مرتبطاً بصفحة شركتك (أنشئ صفحة مجانية إن لم تملك).",
+    "من تبويب Products فعّل منتجي `Share on LinkedIn` و`Sign In with LinkedIn using OpenID Connect` (كلاهما مجاني وفوري).",
+    "من تبويب Auth افتح أدوات OAuth 2.0 (Token generator) وأنشئ رمزاً بصلاحيات `w_member_social` و`openid` و`profile`.",
+    "الصق الرمز هنا؛ معرّفك (Person URN) يُكتشف تلقائياً، ولا تحتاجه إلا إن طلبه الفحص.",
+    "الرمز يعيش نحو شهرين؛ عند انتهائه أعد إنشاءه من نفس المكان وحدّث الحساب من بطاقته."],
+    links:[["بوابة مطوّري لينكدإن","https://developer.linkedin.com/"]]},
+  "tiktok":{t:"تيك توك: فيديو فقط، وخاص أولاً",steps:[
+    "افتح `developers.tiktok.com` وأنشئ تطبيقاً، وأضف منتج `Content API`.",
+    "فعّل نطاق `video.publish` وأكمل ربط حسابك بتدفق OAuth من صفحة التطبيق، ثم انسخ Access Token.",
+    "قبل اجتياز تدقيق تيك توك يُنشر الفيديو بوضع خاص (SELF_ONLY) تراه أنت فقط؛ بعد التدقيق غيّر الخصوصية إلى `PUBLIC_TO_EVERYONE` من حقل الخصوصية.",
+    "الرمز يعيش 24 ساعة؛ أدخل Client Key وClient Secret وRefresh Token ليجدّده التطبيق يومياً تلقائياً.",
+    "الصور غير مدعومة هنا لأن تيك توك تشترط نطاقاً موثقاً لها؛ انشر فيديو MP4 أو MOV."],
+    links:[["بوابة مطوّري تيك توك","https://developers.tiktok.com/"]]},
+  "pinterest":{t:"بنترست: دبابيس الصور على لوحتك",steps:[
+    "افتح `developers.pinterest.com` وأنشئ تطبيقاً جديداً (وضع التجربة Trial مجاني وفوري).",
+    "أكمل تدفق OAuth بصلاحيات `boards:read` و`boards:write` و`pins:read` و`pins:write` وانسخ Access Token.",
+    "معرّف اللوحة (Board ID) تجده في رابط اللوحة على بنترست، أو اطلبه من فحص الحساب بعد إدخال الرمز.",
+    "في وضع التجربة تظهر الدبابيس لك وحدك؛ لجعلها عامة اطلب الوصول القياسي (Standard) من لوحة المطوّر.",
+    "أدخل App ID وApp Secret وRefresh Token ليجدّد التطبيق الرمز تلقائياً قبل انتهائه (نحو شهر)."],
+    links:[["بوابة مطوّري بنترست","https://developers.pinterest.com/"]]},
   "instagram:official":{t:"Instagram الرسمي (حسابك الاحترافي)",cta:"كيف أحصل على Access Token؟",steps:[
     "حوّل حسابك إلى احترافي من تطبيق Instagram: الإعدادات ← نوع الحساب والأدوات ← التبديل إلى حساب احترافي ← Creator أو Business. لا يلزم ربط صفحة فيسبوك. اجعل الحساب عاماً أثناء الإعداد.",
     "افتح `developers.facebook.com` وسجّل بحساب فيسبوك (يلزم حساب مطوّر)، ثم اضغط My Apps ثم Create App.",

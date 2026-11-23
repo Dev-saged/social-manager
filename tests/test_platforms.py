@@ -90,3 +90,118 @@ class AdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NewPlatformTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.saved = (config.DATA_DIR, config.DB_PATH, config.SECRET_KEY_PATH)
+        config.DATA_DIR = self.tmp.name
+        config.DB_PATH = f"{self.tmp.name}/t.db"
+        config.SECRET_KEY_PATH = f"{self.tmp.name}/secret.key"
+        accounts._KEY = None
+        db.init_db()
+
+    def tearDown(self):
+        config.DATA_DIR, config.DB_PATH, config.SECRET_KEY_PATH = self.saved
+        accounts._KEY = None
+        self.tmp.cleanup()
+
+    def adapter(self, platform, creds):
+        db.add_account(platform, "u", creds, "personal")
+        return platforms.get(platform, db.list_accounts()[-1])
+
+    def test_new_platforms_registered(self):
+        names = platforms.platform_names()
+        for p in ("linkedin", "tiktok", "pinterest"):
+            self.assertIn(p, names)
+        caps = platforms.capabilities()
+        self.assertFalse(caps["tiktok"]["text"])
+        self.assertTrue(caps["tiktok"]["video"])
+        self.assertTrue(caps["linkedin"]["image"])
+        self.assertFalse(caps["pinterest"]["text"])
+        self.assertTrue(caps["pinterest"]["image"])
+
+    def test_linkedin_text_post(self):
+        a = self.adapter("linkedin", {"access_token": "T", "person_urn": "urn:li:person:1"})
+        r = ok({})
+        r.headers = {"X-RestLi-Id": "urn:li:share:9"}
+        with patch("platforms.linkedin.requests.post", return_value=r) as post:
+            self.assertEqual(a.publish("مرحبا"), "urn:li:share:9")
+        body = post.call_args.kwargs["json"]
+        self.assertEqual(body["author"], "urn:li:person:1")
+        self.assertEqual(body["specificContent"]["com.linkedin.ugc.ShareContent"]["shareMediaCategory"], "NONE")
+        self.assertEqual(post.call_args.kwargs["headers"]["X-Restli-Protocol-Version"], "2.0.0")
+
+    def test_linkedin_person_urn_from_userinfo(self):
+        a = self.adapter("linkedin", {"access_token": "T"})
+        with patch("platforms.linkedin.requests.get", return_value=ok({"sub": "abc", "name": "ساجد"})) as get:
+            self.assertEqual(a._person_urn(), "urn:li:person:abc")
+            self.assertTrue(get.call_args.args[0].endswith("/v2/userinfo"))
+
+    def test_linkedin_image_flow_and_uncertain_post(self):
+        from core.errors import DeliveryUncertain
+        a = self.adapter("linkedin", {"access_token": "T", "person_urn": "urn:li:person:1"})
+        path = f"{self.tmp.name}/i.jpg"
+        with open(path, "wb") as f:
+            f.write(b"img")
+        reg = ok({"value": {"uploadMechanism": {"com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest": {"uploadUrl": "https://up.example/x"}}, "asset": "urn:li:digitalmediaAsset:A"}})
+        with patch("platforms.linkedin.requests.post", side_effect=[reg, ok(), RuntimeError("boom")]):
+            with self.assertRaises(DeliveryUncertain):
+                a.publish("نص", path)
+
+    def test_tiktok_video_flow(self):
+        a = self.adapter("tiktok", {"access_token": "T"})
+        path = f"{self.tmp.name}/v.mp4"
+        with open(path, "wb") as f:
+            f.write(b"12345")
+        init = ok({"data": {"publish_id": "pub1", "upload_url": "https://up.example/t"}, "error": {"code": "ok"}})
+        with patch("platforms.tiktok.requests.post", return_value=init) as post, \
+             patch("platforms.tiktok.requests.put", return_value=ok()) as put:
+            self.assertEqual(a.publish_media("عنوان", path, "video"), "pub1")
+        body = post.call_args.kwargs["json"]
+        self.assertEqual(body["post_info"]["privacy_level"], "SELF_ONLY")
+        self.assertEqual(body["source_info"]["video_size"], 5)
+        self.assertEqual(put.call_args.kwargs["headers"]["Content-Range"], "bytes 0-4/5")
+
+    def test_tiktok_text_refused_and_error_mapping(self):
+        from core.errors import AppError
+        a = self.adapter("tiktok", {"access_token": "T"})
+        with self.assertRaises(NotSupported):
+            a.publish("نص فقط")
+        bad = ok({"error": {"code": "unaudited_client_can_only_post_to_private_accounts", "message": "m"}})
+        with patch("platforms.tiktok.requests.post", return_value=bad):
+            with self.assertRaises(AppError) as ctx:
+                a.probe()
+        self.assertEqual(ctx.exception.code, "permission")
+
+    def test_tiktok_refresh(self):
+        a = self.adapter("tiktok", {"access_token": "T", "refresh_token": "R", "client_key": "K", "client_secret": "S"})
+        self.assertTrue(a.needs_refresh(10**12))
+        with patch("platforms.tiktok.requests.post", return_value=ok({"access_token": "N", "refresh_token": "R2"})) as post:
+            creds = a.refresh_token()
+        self.assertEqual(creds["access_token"], "N")
+        self.assertEqual(post.call_args.kwargs["data"]["grant_type"], "refresh_token")
+        b = self.adapter("tiktok", {"access_token": "T"})
+        self.assertFalse(b.needs_refresh(10**12))
+
+    def test_pinterest_pin_base64(self):
+        a = self.adapter("pinterest", {"access_token": "T", "board_id": "B1"})
+        path = f"{self.tmp.name}/p.png"
+        with open(path, "wb") as f:
+            f.write(b"PNG")
+        with patch("platforms.pinterest.requests.post", return_value=ok({"id": "pin7"})) as post:
+            self.assertEqual(a.publish_media("العنوان\nالوصف", path, "image"), "pin7")
+        body = post.call_args.kwargs["json"]
+        self.assertEqual(body["board_id"], "B1")
+        self.assertEqual(body["title"], "العنوان")
+        self.assertEqual(body["media_source"]["source_type"], "image_base64")
+        self.assertEqual(body["media_source"]["content_type"], "image/png")
+
+    def test_pinterest_text_refused_and_probe(self):
+        a = self.adapter("pinterest", {"access_token": "T", "board_id": "B1"})
+        with self.assertRaises(NotSupported):
+            a.publish("نص فقط")
+        with patch("platforms.pinterest.requests.get", side_effect=[ok({"username": "u1"}), ok({"name": "لوحتي"})]):
+            info = a.probe()
+        self.assertEqual(info["board"], "لوحتي")

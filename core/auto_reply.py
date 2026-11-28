@@ -15,6 +15,12 @@ from platforms import get as get_adapter
 from platforms.base import RateLimitExceeded
 
 _last_poll = {}
+PRIVATE_REPLY_WINDOW = 7 * 86400 - 3600  # ميتا تسمح بالرسالة الخاصة خلال 7 أيام من التعليق، نترك ساعة هامش
+
+
+def needs_approval():
+    """الافتراضي: كل رد يبقى مسودة حتى تعتمده (القيمة '0' في الإعداد reply_approval تعطّل ذلك)."""
+    return db.get_setting("reply_approval", "1") != "0"
 
 
 def match_rule(rules, comment):
@@ -62,11 +68,15 @@ def poll(now=None):
             rule = match_rule(rules, c)
             if not rule or c["ts"] < rule["created_at"]:
                 continue
+            if now - c["ts"] > PRIVATE_REPLY_WINDOW or c.get("owner_replied"):
+                continue
+            if db.user_replied_on_media(account_id, c["media_id"], c["user_id"]):
+                continue
             public, dm = compose(rule, c)
             if not (public or dm):
                 continue
             release = now + random.uniform(*config.REPLY_DELAY_RANGE)
-            if db.queue_reply(rule["id"], account_id, c, public, dm, release):
+            if db.queue_reply(rule["id"], account_id, c, public, dm, release, "draft" if needs_approval() else "queued"):
                 added += 1
     return added
 

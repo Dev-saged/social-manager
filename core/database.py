@@ -938,20 +938,44 @@ def defer_reply_part(reply_id, part, error="", delay=300):
         c.execute("UPDATE reply_log SET status='done' WHERE id=? AND public_status NOT IN ('pending','sending') AND dm_status NOT IN ('pending','sending')", (reply_id,))
 
 
-def queue_reply(rule_id, account_id, comment, public_text, dm_text, release_at):
+def queue_reply(rule_id, account_id, comment, public_text, dm_text, release_at, status="queued"):
     """يسجّل تعليقاً للرد. UNIQUE يمنع الرد مرتين على نفس التعليق. يعيد None إن سبق."""
     now = time.time()
     with _conn() as c:
         cur = c.execute(
             "INSERT OR IGNORE INTO reply_log(rule_id, account_id, comment_id, media_id, user_id, username, comment_text, "
-            "public_text, dm_text, public_status, dm_status, release_at, created_at, updated_at) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? "
+            "public_text, dm_text, public_status, dm_status, release_at, created_at, updated_at, status) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,? "
             "WHERE EXISTS(SELECT 1 FROM reply_rules WHERE id=? AND active=1) "
             "AND EXISTS(SELECT 1 FROM accounts WHERE id=? AND active=1)",
             (rule_id, account_id, comment["comment_id"], comment["media_id"], comment["user_id"], comment["username"],
              comment["text"], public_text, dm_text, "pending" if public_text else "none", "pending" if dm_text else "none",
-             release_at, now, now, rule_id, account_id),
+             release_at, now, now, status, rule_id, account_id),
         )
         return cur.lastrowid if cur.rowcount else None
+
+
+def user_replied_on_media(account_id, media_id, user_id):
+    """true إن سبق تسجيل رد (حتى المسودة) لنفس الشخص على نفس المنشور: رسالة واحدة لكل شخص."""
+    if not user_id:
+        return False
+    with _conn() as c:
+        return c.execute("SELECT 1 FROM reply_log WHERE account_id=? AND media_id=? AND user_id=? AND status!='rejected'",
+                         (account_id, media_id, user_id)).fetchone() is not None
+
+
+def decide_draft(reply_id, approve):
+    """يعتمد مسودة (تصير في الطابور) أو يرفضها. لا يعتمد إن كانت القاعدة أو الحساب متوقفين."""
+    with _conn() as c:
+        if approve:
+            cur = c.execute(
+                "UPDATE reply_log SET status='queued', release_at=?, updated_at=? WHERE id=? AND status='draft' "
+                "AND EXISTS(SELECT 1 FROM reply_rules r WHERE r.id=reply_log.rule_id AND r.active=1) "
+                "AND EXISTS(SELECT 1 FROM accounts a WHERE a.id=reply_log.account_id AND a.active=1)",
+                (time.time(), time.time(), reply_id))
+        else:
+            cur = c.execute("UPDATE reply_log SET status='rejected', updated_at=? WHERE id=? AND status='draft'",
+                            (time.time(), reply_id))
+        return cur.rowcount == 1
 
 
 def seen_comment(account_id, comment_id):

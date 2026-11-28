@@ -340,13 +340,45 @@ class InstagramPlatform(BasePlatform):
             "title": cut(lines[0] if lines else "الرابط الذي طلبته"), "subtitle": cut(" ".join(lines[1:]) or "اضغط الزر لفتح الرابط"),
             "buttons": [{"type": "web_url", "url": url, "title": "افتح الرابط"}]}]}}}
 
+    def recent_dms(self, limit=15):
+        """رسائل واردة حديثة (الوضعان الرسميان فقط). الشخصي غير مدعوم عمداً لأنه مخاطرة على الحساب."""
+        if self.mode == "personal":
+            return []
+        if self.mode == "business":
+            fetch, uid = self._graph, self.creds["ig_user_id"]
+            params = {"platform": "instagram"}
+        else:
+            fetch, uid, params = self._ig, self._uid(), {}
+        out = []
+        data = fetch(f"{uid}/conversations", fields="messages.limit(3){id,from,message,created_time}", limit=limit, **params)
+        import datetime
+        for conv in data.get("data", []):
+            for m in (conv.get("messages") or {}).get("data", []):
+                sender = m.get("from") or {}
+                if str(sender.get("id", "")) == str(uid) or not m.get("message"):
+                    continue
+                ts = datetime.datetime.fromisoformat(m["created_time"].replace("+0000", "+00:00")).timestamp()
+                out.append({"comment_id": m["id"], "media_id": "@dm", "user_id": str(sender.get("id", "")),
+                            "username": sender.get("username", ""), "text": m["message"], "ts": ts})
+        return out
+
+    def react_to_message(self, user_id, message_id, reaction="love"):
+        if self.mode == "personal":
+            raise NotSupported("التفاعل مع الرسائل يحتاج الوضع الرسمي")
+        host, uid = (GRAPH, self.creds["ig_user_id"]) if self.mode == "business" else (IG_GRAPH, self._uid())
+        r = requests.post(f"{host}/{uid}/messages", timeout=30, params={"access_token": self.creds["access_token"]},
+                          json={"recipient": {"id": user_id}, "sender_action": "react",
+                                "payload": {"message_id": message_id, "reaction": reaction}})
+        r.raise_for_status()
+
     def send_dm(self, user_id, text, comment_id=None):
         if self.mode in ("business", "official"):
             # Private Reply الرسمي: رد واحد لكل تعليق خلال 7 أيام
             host, uid = (GRAPH, self.creds["ig_user_id"]) if self.mode == "business" else (IG_GRAPH, self._uid())
             r = requests.post(f"{host}/{uid}/messages", timeout=30, params={
                 "access_token": self.creds["access_token"]},
-                json={"recipient": {"comment_id": comment_id}, "message": self._dm_message(text)})
+                json={"recipient": {"comment_id": comment_id} if comment_id else {"id": user_id},
+                      "message": self._dm_message(text)})
             r.raise_for_status()
         else:
             self._personal_client().direct_send(text, user_ids=[int(user_id)])

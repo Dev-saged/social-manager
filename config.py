@@ -13,6 +13,8 @@ OXION_API_KEY = os.getenv("OXION_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 REPLY_POLL_SECONDS = 120
+REPLY_DAILY_CAP = 100  # أقصى عدد ردود تخرج في 24 ساعة (سقف إضافي فوق حد الساعة)
+REPLY_DM_COOLDOWN = 12 * 3600  # لا ردّ تلقائي ثانٍ على رسائل الشخص نفسه قبل مرور هذه المدة
 REPLY_DELAY_RANGE = (20, 120)  # تأخير عشوائي قبل الرد حتى لا يبدو آلياً
 
 # ---- مجلد البيانات (قاعدة البيانات + مفتاح التشفير) ----

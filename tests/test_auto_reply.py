@@ -55,7 +55,7 @@ class KeywordTests(unittest.TestCase):
         self.assertIsNone(m("", ["x"]))
 
 
-class AutoReplyTests(unittest.TestCase):
+class _ReplyBase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.saved = (config.DATA_DIR, config.DB_PATH, config.SECRET_KEY_PATH, config.REPLY_DELAY_RANGE)
@@ -70,6 +70,8 @@ class AutoReplyTests(unittest.TestCase):
         FakeIG.comments, FakeIG.sent, FakeIG.fail = [], [], {}
         FakeIG.reply_limiter, FakeIG.dm_limiter = Limiter(), Limiter()
         auto_reply._last_poll.clear()
+        db.set_setting("reply_approval", "0")
+        db.set_setting("replies_live", "1")
         self.patches = [patch.object(auto_reply, "get_adapter", lambda p, r: FakeIG()),
                         patch.object(net, "online", return_value=True)]
         for p in self.patches:
@@ -85,6 +87,8 @@ class AutoReplyTests(unittest.TestCase):
         accounts._KEY = None
         self.tmp.cleanup()
 
+
+class AutoReplyTests(_ReplyBase):
     def test_matches_replies_once_and_dms(self):
         FakeIG.comments = [comment("1", "ابغى المشروع", self.t0 + 5), comment("2", "حلو", self.t0 + 6),
                            comment("3", "مشروع", self.t0 - 9999)]
@@ -156,3 +160,117 @@ class AutoReplyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ApprovalAndGuardTests(_ReplyBase):
+    """وضع الموافقة: لا يُرسل شيء قبل اعتماد المسودة. وحمايات النافذة والتكرار."""
+
+    def setUp(self):
+        super().setUp()
+        db.set_setting("reply_approval", "1")
+
+    def test_draft_sends_nothing_until_approved(self):
+        FakeIG.comments = [comment("1", "مشروع", self.t0 + 5)]
+        self.assertEqual(auto_reply.poll(self.t0 + 10), 1)
+        auto_reply.release(self.t0 + 500)
+        self.assertEqual(FakeIG.sent, [])
+        row = db.list_reply_log()[0]
+        self.assertEqual(row["status"], "draft")
+        self.assertEqual(self.client.post(f"/api/reply-log/{row['id']}/approve").status_code, 200)
+        auto_reply.release(time.time() + 5)
+        self.assertEqual([s[0] for s in FakeIG.sent], ["public", "dm"])
+
+    def test_reject_never_sends(self):
+        FakeIG.comments = [comment("1", "مشروع", self.t0 + 5)]
+        auto_reply.poll(self.t0 + 10)
+        rid = db.list_reply_log()[0]["id"]
+        self.assertEqual(self.client.post(f"/api/reply-log/{rid}/reject").status_code, 200)
+        self.assertEqual(self.client.post(f"/api/reply-log/{rid}/approve").status_code, 409)
+        auto_reply.release(time.time() + 5)
+        self.assertEqual(FakeIG.sent, [])
+
+    def test_guards_owner_replied_old_and_same_user(self):
+        old = comment("o", "مشروع", self.t0 + 5)
+        FakeIG.comments = [dict(comment("1", "مشروع", self.t0 + 5), owner_replied=True),
+                           comment("2", "مشروع", self.t0 + 6, user="u2"),
+                           comment("3", "مشروع", self.t0 + 7, user="u2")]
+        self.assertEqual(auto_reply.poll(self.t0 + 10), 1)
+        auto_reply._last_poll.clear()
+        self.assertEqual(auto_reply.poll(self.t0 + 8 * 86400), 0)
+
+    def test_preview_is_offline_and_saves_nothing(self):
+        r = self.client.post("/api/reply-rules/preview", json={"account_id": self.acc, "text": "ابغى المشروع", "username": "sara"})
+        self.assertEqual(r.get_json()["dm"], "هذا الرابط\nhttps://x.dev")
+        self.assertEqual(db.list_reply_log(), [])
+
+    def test_dm_card_for_link(self):
+        from platforms.instagram import InstagramPlatform as A
+        m = A._dm_message("هذا الدليل\nتفاصيل\nhttps://x.dev/a")
+        self.assertEqual(m["attachment"]["payload"]["elements"][0]["buttons"][0]["url"], "https://x.dev/a")
+        self.assertEqual(A._dm_message("مرحبا"), {"text": "مرحبا"})
+
+
+class AccountWideTests(_ReplyBase):
+    """كل الحساب: تعليقات + رسائل + تفاعل، مع مفتاح الإيقاف وقفل الإرسال والمواضيع الحساسة."""
+
+    def setUp(self):
+        super().setUp()
+        db.set_setting("reply_approval", "1")
+        FakeIG.reacted = []
+        FakeIG.dms = []
+        FakeIG.recent_dms = lambda self: list(FakeIG.dms)
+        FakeIG.react_to_message = lambda self, u, m, r: FakeIG.reacted.append((u, m, r))
+        self.dm_rule = db.add_reply_rule(self.acc, "dm", "", [], True, True, [], "أهلاً، وصلتنا رسالتك", "", channel="dm", reaction="love")
+        self.all_rule = db.add_reply_rule(self.acc, "all", "", [], True, True, ["شكراً {name}"], "", "")
+
+    def dm(self, mid, text, ts, user="u9"):
+        return {"comment_id": mid, "media_id": "@dm", "user_id": user, "username": "x", "text": text, "ts": ts}
+
+    def test_whole_account_comment_and_dm_rules_are_separate(self):
+        FakeIG.comments = [comment("c1", "حلو كتير", self.t0 + 5, media="mA"), comment("c2", "رائع", self.t0 + 6, media="mB", user="u2")]
+        FakeIG.dms = [self.dm("d1", "مرحبا", self.t0 + 7)]
+        self.assertEqual(auto_reply.poll(self.t0 + 10), 3)
+        kinds = sorted((r["kind"], r["rule_id"]) for r in db.list_reply_log())
+        self.assertEqual(kinds, [("comment", self.all_rule), ("comment", self.all_rule), ("dm", self.dm_rule)])
+
+    def test_dm_approved_reacts_then_replies_in_thread_not_as_private_reply(self):
+        FakeIG.dms = [self.dm("d1", "مرحبا", self.t0 + 7)]
+        auto_reply.poll(self.t0 + 10)
+        rid = [r for r in db.list_reply_log() if r["kind"] == "dm"][0]["id"]
+        self.client.post(f"/api/reply-log/{rid}/approve")
+        auto_reply.release(time.time() + 5)
+        self.assertEqual(FakeIG.reacted, [("u9", "d1", "love")])
+        self.assertEqual(FakeIG.sent, [("dm", "u9", "أهلاً، وصلتنا رسالتك")])
+
+    def test_dm_cooldown_one_auto_reply_per_person(self):
+        FakeIG.dms = [self.dm("d1", "مرحبا", self.t0 + 7), self.dm("d2", "هل من رد؟", self.t0 + 8)]
+        self.assertEqual(auto_reply.poll(self.t0 + 10), 1)
+
+    def test_sensitive_text_is_always_held_even_without_approval(self):
+        db.set_setting("reply_approval", "0")
+        FakeIG.comments = [comment("c1", "ابني عمره 7 سنوات", self.t0 + 5)]
+        auto_reply.poll(self.t0 + 10)
+        row = db.list_reply_log()[0]
+        self.assertEqual(row["status"], "draft")
+        self.assertTrue(row["held_reason"])
+        auto_reply.release(time.time() + 5)
+        self.assertEqual(FakeIG.sent, [])
+
+    def test_live_lock_default_off_pause_and_daily_cap(self):
+        db.set_setting("reply_approval", "0")
+        db.set_setting("replies_live", "0")
+        FakeIG.comments = [comment("c1", "حلو", self.t0 + 5)]
+        auto_reply.poll(self.t0 + 10)
+        self.assertEqual(auto_reply.release(time.time() + 60), 0)
+        self.assertEqual(FakeIG.sent, [])
+        self.assertEqual(self.client.post("/api/replies/live", json={"enabled": True}).status_code, 400)
+        self.client.post("/api/replies/live", json={"enabled": True, "confirm": True})
+        self.client.post("/api/replies/pause")
+        self.assertEqual(auto_reply.release(time.time() + 60), 0)
+        self.assertEqual(auto_reply.poll(self.t0 + 500), 0)
+        self.client.post("/api/replies/resume")
+        with patch.object(config, "REPLY_DAILY_CAP", 0):
+            self.assertEqual(auto_reply.release(time.time() + 60), 0)
+        auto_reply.release(time.time() + 60)
+        self.assertEqual(FakeIG.sent[0][0], "public")
+        self.assertEqual(self.client.get("/api/replies/status").get_json()["live"], True)

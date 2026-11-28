@@ -285,7 +285,7 @@ class InstagramPlatform(BasePlatform):
             if not m.get("comments_count"):
                 continue
             data = requests.get(f"{token_host}/{m['id']}/comments", timeout=30, params={
-                "fields": "id,text,username,timestamp,from", "limit": per_media,
+                "fields": "id,text,username,timestamp,from,replies{username}", "limit": per_media,
                 "access_token": self.creds["access_token"]})
             data.raise_for_status()
             for c in data.json().get("data", []):
@@ -293,7 +293,9 @@ class InstagramPlatform(BasePlatform):
                     continue
                 ts = datetime.datetime.fromisoformat(c["timestamp"].replace("+0000", "+00:00")).timestamp()
                 out.append({"comment_id": c["id"], "media_id": m["id"], "user_id": str((c.get("from") or {}).get("id", "")),
-                            "username": c.get("username", ""), "text": c.get("text", ""), "ts": ts})
+                            "username": c.get("username", ""), "text": c.get("text", ""), "ts": ts,
+                            "owner_replied": any(r.get("username") == self.account["username"]
+                                                 for r in (c.get("replies") or {}).get("data", []))})
         return out
 
     def recent_comments(self, media_limit=10, per_media=40):
@@ -324,13 +326,27 @@ class InstagramPlatform(BasePlatform):
         else:
             self._personal_client().media_comment(media_id, text, replied_to_comment_id=int(comment_id))
 
+    @staticmethod
+    def _dm_message(text):
+        """رسالة فيها رابط HTTPS تصير بطاقة بزر رسمي (أقل عرضة لفلاتر السباّم من الرابط المجرد)."""
+        import re
+        m = re.search(r"https://\S+", text)
+        if not m:
+            return {"text": text}
+        url = m.group(0).rstrip("),.،")
+        lines = [l.strip() for l in text.replace(m.group(0), "").splitlines() if l.strip()]
+        cut = lambda s: s if len(s) <= 78 else s[:77].rstrip() + "…"
+        return {"attachment": {"type": "template", "payload": {"template_type": "generic", "elements": [{
+            "title": cut(lines[0] if lines else "الرابط الذي طلبته"), "subtitle": cut(" ".join(lines[1:]) or "اضغط الزر لفتح الرابط"),
+            "buttons": [{"type": "web_url", "url": url, "title": "افتح الرابط"}]}]}}}
+
     def send_dm(self, user_id, text, comment_id=None):
         if self.mode in ("business", "official"):
             # Private Reply الرسمي: رد واحد لكل تعليق خلال 7 أيام
             host, uid = (GRAPH, self.creds["ig_user_id"]) if self.mode == "business" else (IG_GRAPH, self._uid())
             r = requests.post(f"{host}/{uid}/messages", timeout=30, params={
                 "access_token": self.creds["access_token"]},
-                json={"recipient": {"comment_id": comment_id}, "message": {"text": text}})
+                json={"recipient": {"comment_id": comment_id}, "message": self._dm_message(text)})
             r.raise_for_status()
         else:
             self._personal_client().direct_send(text, user_ids=[int(user_id)])

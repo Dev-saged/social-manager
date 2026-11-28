@@ -91,7 +91,36 @@ def test_match():
 def reply_log():
     return jsonify([{"id": r["id"], "rule_id": r["rule_id"], "username": r["username"], "comment": r["comment_text"],
                      "public_status": r["public_status"], "dm_status": r["dm_status"], "status": r["status"],
-                     "error": r["error"], "created_at": r["created_at"]} for r in db.list_reply_log()])
+                     "public_text": r["public_text"], "dm_text": r["dm_text"], "error": r["error"], "created_at": r["created_at"]} for r in db.list_reply_log()])
+
+
+@bp.post("/api/reply-log/<int:reply_id>/approve")
+def approve(reply_id):
+    if not db.decide_draft(reply_id, True):
+        return jsonify({"error": "لا توجد مسودة بهذا الرقم، أو القاعدة/الحساب متوقف"}), 409
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/reply-log/<int:reply_id>/reject")
+def reject(reply_id):
+    if not db.decide_draft(reply_id, False):
+        return jsonify({"error": "لا توجد مسودة بهذا الرقم"}), 409
+    return jsonify({"ok": True})
+
+
+@bp.post("/api/reply-rules/preview")
+def preview():
+    """تجربة جافة بلا شبكة: ماذا سيُكتب لو وصل هذا التعليق. لا يحفظ شيئاً ولا يرسل."""
+    from core import auto_reply
+    data = request.get_json(force=True)
+    c = {"comment_id": "preview", "media_id": str(data.get("media_id") or ""), "user_id": "0",
+         "username": str(data.get("username") or "user"), "text": str(data.get("text") or ""), "ts": 0}
+    rules = [r for r in db.list_reply_rules(active_only=True) if r["account_id"] == int(data.get("account_id") or 0)]
+    rule = auto_reply.match_rule(rules, c)
+    if not rule:
+        return jsonify({"matched": False})
+    public, dm = auto_reply.compose(rule, c)
+    return jsonify({"matched": True, "rule_id": rule["id"], "public": public, "dm": dm})
 
 
 @bp.post("/api/reply-log/<int:reply_id>/retry")

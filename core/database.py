@@ -174,6 +174,11 @@ MIGRATIONS = [
         public_status=CASE WHEN public_status='failed' THEN 'outcome_unknown' ELSE public_status END,
         dm_status=CASE WHEN dm_status='failed' THEN 'outcome_unknown' ELSE dm_status END
         WHERE public_status='failed' OR dm_status='failed'""",
+    "ALTER TABLE reply_rules ADD COLUMN channel TEXT DEFAULT 'comment'",
+    "ALTER TABLE reply_rules ADD COLUMN reaction TEXT DEFAULT ''",
+    "ALTER TABLE reply_log ADD COLUMN reaction TEXT DEFAULT ''",
+    "ALTER TABLE reply_log ADD COLUMN kind TEXT DEFAULT 'comment'",
+    "ALTER TABLE reply_log ADD COLUMN held_reason TEXT DEFAULT ''",
 ]
 
 
@@ -850,13 +855,14 @@ def mark_rule_run(rule_id, slot, title):
 
 
 # ---------- الردود التلقائية على التعليقات ----------
-def add_reply_rule(account_id, name, media_id, keywords, any_comment, whole_word, public_replies, dm_text, dm_link, active=True):
+def add_reply_rule(account_id, name, media_id, keywords, any_comment, whole_word, public_replies, dm_text, dm_link, active=True,
+                   channel="comment", reaction=""):
     with _conn() as c:
         cur = c.execute(
-            "INSERT INTO reply_rules(account_id, name, media_id, keywords, any_comment, whole_word, public_replies, dm_text, dm_link, created_at, active) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO reply_rules(account_id, name, media_id, keywords, any_comment, whole_word, public_replies, dm_text, dm_link, created_at, active, channel, reaction) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (account_id, name, media_id, json.dumps(keywords, ensure_ascii=False), 1 if any_comment else 0,
-             1 if whole_word else 0, json.dumps(public_replies, ensure_ascii=False), dm_text, dm_link, time.time(), 1 if active else 0),
+             1 if whole_word else 0, json.dumps(public_replies, ensure_ascii=False), dm_text, dm_link, time.time(), 1 if active else 0, channel, reaction),
         )
         return cur.lastrowid
 
@@ -875,7 +881,7 @@ def list_reply_rules(account_id=None, active_only=False):
 def update_reply_rule(rule_id, **fields):
     json_fields = {"keywords", "public_replies"}
     flags = {"any_comment", "whole_word", "active"}
-    allowed = json_fields | flags | {"name", "media_id", "dm_text", "dm_link"}
+    allowed = json_fields | flags | {"name", "media_id", "dm_text", "dm_link", "channel", "reaction"}
     sets, args = [], []
     for k, v in fields.items():
         if k not in allowed:
@@ -938,18 +944,18 @@ def defer_reply_part(reply_id, part, error="", delay=300):
         c.execute("UPDATE reply_log SET status='done' WHERE id=? AND public_status NOT IN ('pending','sending') AND dm_status NOT IN ('pending','sending')", (reply_id,))
 
 
-def queue_reply(rule_id, account_id, comment, public_text, dm_text, release_at, status="queued"):
+def queue_reply(rule_id, account_id, comment, public_text, dm_text, release_at, status="queued", reaction="", held_reason=""):
     """يسجّل تعليقاً للرد. UNIQUE يمنع الرد مرتين على نفس التعليق. يعيد None إن سبق."""
     now = time.time()
     with _conn() as c:
         cur = c.execute(
             "INSERT OR IGNORE INTO reply_log(rule_id, account_id, comment_id, media_id, user_id, username, comment_text, "
-            "public_text, dm_text, public_status, dm_status, release_at, created_at, updated_at, status) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,? "
+            "public_text, dm_text, public_status, dm_status, release_at, created_at, updated_at, status, kind, reaction, held_reason) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? "
             "WHERE EXISTS(SELECT 1 FROM reply_rules WHERE id=? AND active=1) "
             "AND EXISTS(SELECT 1 FROM accounts WHERE id=? AND active=1)",
             (rule_id, account_id, comment["comment_id"], comment["media_id"], comment["user_id"], comment["username"],
-             comment["text"], public_text, dm_text, "pending" if public_text else "none", "pending" if dm_text else "none",
-             release_at, now, now, status, rule_id, account_id),
+             comment["text"], public_text, dm_text, "pending" if public_text else "none", "pending" if (dm_text or reaction) else "none",
+             release_at, now, now, status, comment.get("kind", "comment"), reaction, held_reason, rule_id, account_id),
         )
         return cur.lastrowid if cur.rowcount else None
 
@@ -961,6 +967,27 @@ def user_replied_on_media(account_id, media_id, user_id):
     with _conn() as c:
         return c.execute("SELECT 1 FROM reply_log WHERE account_id=? AND media_id=? AND user_id=? AND status!='rejected'",
                          (account_id, media_id, user_id)).fetchone() is not None
+
+
+def recent_reply_to_user(account_id, user_id, kind, since):
+    """true إن سبق تسجيل رد (غير مرفوض) لهذا الشخص من النوع نفسه بعد الوقت since."""
+    if not user_id:
+        return False
+    with _conn() as c:
+        return c.execute("SELECT 1 FROM reply_log WHERE account_id=? AND user_id=? AND kind=? AND created_at>=? "
+                         "AND status!='rejected'", (account_id, user_id, kind, since)).fetchone() is not None
+
+
+def sent_since(since):
+    """عدد الردود التي خرجت فعلاً (علنية أو خاصة) بعد الوقت since: للسقف اليومي."""
+    with _conn() as c:
+        return c.execute("SELECT COUNT(*) FROM reply_log WHERE (public_status='sent' OR dm_status='sent') AND updated_at>=?",
+                         (since,)).fetchone()[0]
+
+
+def reply_counts():
+    with _conn() as c:
+        return {r["status"]: r["n"] for r in c.execute("SELECT status, COUNT(*) n FROM reply_log GROUP BY status")}
 
 
 def decide_draft(reply_id, approve):
